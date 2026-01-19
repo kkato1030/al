@@ -64,6 +64,8 @@ func runPackageRemove(packageName, providerName, profile string) error {
 		p = provider.NewBrewProvider()
 	case "mas":
 		p = provider.NewMasProvider()
+	case "manual":
+		p = provider.NewManualProvider()
 	default:
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}

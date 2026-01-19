@@ -169,6 +169,12 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 			finalID = packageID
 			finalName = packageName
 		}
+	case "manual":
+		manualProvider := provider.NewManualProvider()
+		p = manualProvider
+		// For manual, use package name as ID
+		finalID = packageName
+		finalName = packageName
 	default:
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}

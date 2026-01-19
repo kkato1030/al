@@ -1,9 +1,7 @@
 package packagecmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
@@ -85,10 +83,8 @@ func runPackageSearch(query, providerName string) error {
 }
 
 func runPackageSearchInteractive(query string) error {
-	scanner := bufio.NewScanner(os.Stdin)
-
 	// Get provider
-	selectedProvider, err := selectProvider(scanner)
+	selectedProvider, err := selectProviderUI()
 	if err != nil {
 		return err
 	}

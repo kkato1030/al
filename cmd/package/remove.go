@@ -1,12 +1,9 @@
 package packagecmd
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
@@ -85,8 +82,6 @@ func runPackageRemove(packageName, providerName, profile string) error {
 }
 
 func runPackageRemoveInteractive(packageName, provider, profile string) error {
-	scanner := bufio.NewScanner(os.Stdin)
-
 	// Get package name
 	fmt.Printf("Package name: %s\n", packageName)
 
@@ -123,38 +118,17 @@ func runPackageRemoveInteractive(packageName, provider, profile string) error {
 		return runPackageRemove(packageName, pkg.Provider, pkg.Profile)
 	}
 
-	// Multiple matches, let user select
-	fmt.Printf("\nFound %d matching packages:\n", len(matchingPackages))
-	for i, pkg := range matchingPackages {
-		fmt.Printf("  %d. %s (provider: %s, profile: %s", i+1, pkg.Name, pkg.Provider, pkg.Profile)
-		if pkg.Version != "" {
-			fmt.Printf(", version: %s", pkg.Version)
-		}
-		if pkg.Description != "" {
-			fmt.Printf(" - %s", pkg.Description)
-		}
-		fmt.Println(")")
-	}
-	fmt.Print("Select package to remove (number): ")
-
-	if !scanner.Scan() {
-		return fmt.Errorf("failed to read input")
+	// Multiple matches, let user select with UI
+	model := NewPackageSelectModel(matchingPackages, fmt.Sprintf("Select package to remove (found %d matching packages)", len(matchingPackages)))
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("error running UI: %w", err)
 	}
 
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
+	selectedPkg := model.GetSelected()
+	if selectedPkg == nil {
 		return fmt.Errorf("package selection is required")
 	}
 
-	idx, err := strconv.Atoi(input)
-	if err != nil {
-		return fmt.Errorf("invalid number: %s", input)
-	}
-
-	if idx < 1 || idx > len(matchingPackages) {
-		return fmt.Errorf("number %d is out of range (1-%d)", idx, len(matchingPackages))
-	}
-
-	selectedPkg := matchingPackages[idx-1]
 	return runPackageRemove(packageName, selectedPkg.Provider, selectedPkg.Profile)
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/kkato1030/al/cmd/provider"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +16,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(NewVersionCmd())
-	rootCmd.AddCommand(NewProviderCmd())
+	rootCmd.AddCommand(provider.NewProviderCmd())
 
 	return rootCmd
 }

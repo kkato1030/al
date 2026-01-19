@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	configcmd "github.com/kkato1030/al/cmd/config"
-	"github.com/kkato1030/al/cmd/package"
+	packagecmd "github.com/kkato1030/al/cmd/package"
 	"github.com/kkato1030/al/cmd/profile"
 	"github.com/kkato1030/al/cmd/provider"
 	"github.com/kkato1030/al/internal/config"
@@ -28,7 +28,7 @@ func buildAliasSection() string {
 	
 	var sb strings.Builder
 	sb.WriteString("\n\nDefault Aliases:")
-	aliasNames := []string{"add", "remove", "list", "promote"}
+	aliasNames := []string{"add", "remove", "list", "promote", "register"}
 	for _, name := range aliasNames {
 		if cmdStr, exists := aliases[name]; exists {
 			sb.WriteString(fmt.Sprintf("\n  %-10s %s", name, cmdStr))

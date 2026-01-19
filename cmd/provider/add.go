@@ -27,8 +27,10 @@ func runProviderAdd(cmd *cobra.Command, args []string) error {
 		p = provider.NewBrewProvider()
 	case "mas":
 		p = provider.NewMasProvider()
+	case "manual":
+		p = provider.NewManualProvider()
 	default:
-		return fmt.Errorf("unknown provider: %s\nAvailable providers: brew, mas", providerName)
+		return fmt.Errorf("unknown provider: %s\nAvailable providers: brew, mas, manual", providerName)
 	}
 
 	// Check if already installed

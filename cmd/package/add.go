@@ -88,6 +88,11 @@ func NewPackageAddCmd() *cobra.Command {
 	return cmd
 }
 
+// RunPackageAdd runs the package add logic (exported for use by other commands)
+func RunPackageAdd(packageName, providerName, profile, version, description, packageID string) error {
+	return runPackageAdd(packageName, providerName, profile, version, description, packageID)
+}
+
 func runPackageAdd(packageName, providerName, profile, version, description, packageID string) error {
 	// Validate provider exists
 	providerConfig, err := config.GetProvider(providerName)
@@ -169,6 +174,12 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 			finalID = packageID
 			finalName = packageName
 		}
+	case "manual":
+		manualProvider := provider.NewManualProvider()
+		p = manualProvider
+		// For manual, use package name as ID
+		finalID = packageName
+		finalName = packageName
 	default:
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}

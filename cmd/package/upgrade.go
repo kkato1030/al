@@ -87,6 +87,8 @@ func runPackageUpgradeAll(yes bool) error {
 			p = provider.NewBrewProvider()
 		case "mas":
 			p = provider.NewMasProvider()
+		case "manual":
+			p = provider.NewManualProvider()
 		default:
 			fmt.Printf("Warning: unknown provider '%s', skipping packages\n", providerName)
 			errorCount += len(packages)
@@ -159,6 +161,8 @@ func runPackageUpgrade(packageName string) error {
 			p = provider.NewBrewProvider()
 		case "mas":
 			p = provider.NewMasProvider()
+		case "manual":
+			p = provider.NewManualProvider()
 		default:
 			fmt.Printf("Warning: unknown provider '%s' for package %s, skipping\n", pkg.Provider, pkg.Name)
 			continue

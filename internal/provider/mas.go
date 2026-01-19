@@ -165,6 +165,83 @@ func (p *MasProvider) UninstallPackage(packageID string) error {
 	return nil
 }
 
+// UpgradePackage upgrades a package using mas
+// packageID is the app ID (id = app_id for mas)
+func (p *MasProvider) UpgradePackage(packageID string) error {
+	// Check if mas is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check mas installation: %w", err)
+	}
+	if !installed {
+		return fmt.Errorf("mas is not installed. Please install it first using 'al provider add mas'")
+	}
+
+	// Run mas upgrade command
+	fmt.Printf("Upgrading %s using mas...\n", packageID)
+	cmd := exec.Command("mas", "upgrade", packageID)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to upgrade package %s: %w", packageID, err)
+	}
+
+	fmt.Printf("Successfully upgraded %s\n", packageID)
+	return nil
+}
+
+// Upgrade upgrades mas itself using brew
+func (p *MasProvider) Upgrade() error {
+	// Check if mas is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check mas installation: %w", err)
+	}
+	if !installed {
+		return fmt.Errorf("mas is not installed. Please install it first using 'al provider add mas'")
+	}
+
+	// Check if brew is installed
+	brewInstalled := false
+	brewCmd := exec.Command("brew", "--version")
+	if err := brewCmd.Run(); err == nil {
+		brewInstalled = true
+	}
+
+	if !brewInstalled {
+		return fmt.Errorf("brew is required to upgrade mas. Please install brew first using 'al provider add brew'")
+	}
+
+	// Run brew upgrade mas
+	fmt.Println("Upgrading mas using brew...")
+	cmd := exec.Command("brew", "upgrade", "mas")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to upgrade mas: %w", err)
+	}
+
+	// Update version in config
+	version, err := p.GetVersion()
+	if err == nil {
+		providerConfig := config.ProviderConfig{
+			Name:        p.name,
+			InstalledAt: time.Now(),
+			Version:     version,
+		}
+		if err := config.AddOrUpdateProvider(providerConfig); err != nil {
+			fmt.Printf("Warning: failed to update provider config: %v\n", err)
+		}
+	}
+
+	fmt.Println("Successfully upgraded mas")
+	return nil
+}
+
 // SearchPackage searches for packages using mas search
 func (p *MasProvider) SearchPackage(query string) ([]SearchResult, error) {
 	// Check if mas is installed

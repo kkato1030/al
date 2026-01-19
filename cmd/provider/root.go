@@ -14,6 +14,7 @@ func NewProviderCmd() *cobra.Command {
 
 	providerCmd.AddCommand(NewProviderAddCmd())
 	providerCmd.AddCommand(NewProviderListCmd())
+	providerCmd.AddCommand(NewProviderUpgradeCmd())
 
 	return providerCmd
 }

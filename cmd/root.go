@@ -70,6 +70,8 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.SetHelpTemplate(helpTemplate)
 
 	rootCmd.AddCommand(NewVersionCmd())
+	rootCmd.AddCommand(NewUpdateCmd())
+	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(configcmd.NewConfigCmd())
 	rootCmd.AddCommand(provider.NewProviderCmd())
 	rootCmd.AddCommand(profile.NewProfileCmd())

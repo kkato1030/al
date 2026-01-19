@@ -132,5 +132,6 @@ func GetDefaultAliases() map[string]string {
 		"add":     "package add",
 		"remove":  "package remove",
 		"list":    "package list",
+		"register": "package add --provider manual",
 	}
 }

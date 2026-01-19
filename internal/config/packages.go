@@ -128,6 +128,32 @@ func AddOrUpdatePackage(pkg PackageConfig) error {
 	return SavePackagesConfig(config)
 }
 
+// RemovePackage removes a package from the configuration
+// Package is identified by name, provider, and profile combination
+func RemovePackage(name, provider, profile string) error {
+	config, err := LoadPackagesConfig()
+	if err != nil {
+		return err
+	}
+
+	// Find and remove the package
+	found := false
+	for i, pkg := range config.Packages {
+		if pkg.Name == name && pkg.Provider == provider && pkg.Profile == profile {
+			// Remove the package by creating a new slice without it
+			config.Packages = append(config.Packages[:i], config.Packages[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("package '%s' with provider '%s' in profile '%s' not found", name, provider, profile)
+	}
+
+	return SavePackagesConfig(config)
+}
+
 // GetPackagesConfigPath returns the path to the packages.json file
 func GetPackagesConfigPath() (string, error) {
 	configDir, err := GetConfigDir()

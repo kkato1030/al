@@ -16,4 +16,7 @@ type Provider interface {
 
 	// InstallPackage installs a package using the provider
 	InstallPackage(packageName string) error
+
+	// UninstallPackage uninstalls a package using the provider
+	UninstallPackage(packageName string) error
 }

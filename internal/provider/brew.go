@@ -134,3 +134,29 @@ func (p *BrewProvider) InstallPackage(packageName string) error {
 	fmt.Printf("Successfully installed %s\n", packageName)
 	return nil
 }
+
+// UninstallPackage uninstalls a package using brew
+func (p *BrewProvider) UninstallPackage(packageName string) error {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
+	}
+
+	// Run brew uninstall command
+	fmt.Printf("Uninstalling %s using brew...\n", packageName)
+	cmd := exec.Command("brew", "uninstall", packageName)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to uninstall package %s: %w", packageName, err)
+	}
+
+	fmt.Printf("Successfully uninstalled %s\n", packageName)
+	return nil
+}

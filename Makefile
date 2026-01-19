@@ -2,7 +2,7 @@
 
 # 変数定義
 BINARY_NAME=al
-CMD_PATH=./cmd/al
+CMD_PATH=.
 BUILD_DIR=./bin
 VERSION?=0.1.0
 BUILD_TIME=$(shell date +%Y-%m-%dT%H:%M:%S)

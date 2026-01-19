@@ -66,12 +66,14 @@ func (p *ManualProvider) InstallPackage(packageID string) error {
 	return nil
 }
 
-// UninstallPackage does nothing for manual provider
-// Users need to uninstall packages manually
+// UninstallPackage removes the package from tracking for manual provider
+// Actual uninstallation must be done manually by the user
 func (p *ManualProvider) UninstallPackage(packageID string) error {
-	// Manual provider doesn't uninstall packages
-	// Users need to uninstall packages manually
-	fmt.Printf("Note: Package '%s' is tracked as manually installed. Please uninstall it manually if needed.\n", packageID)
+	// Manual provider doesn't uninstall packages automatically
+	// The package will be removed from config by the remove command
+	// Users need to uninstall the actual package manually if needed
+	fmt.Printf("Removing package '%s' from tracking (manual provider).\n", packageID)
+	fmt.Printf("Note: If you want to uninstall the actual package, please do so manually.\n")
 	return nil
 }
 

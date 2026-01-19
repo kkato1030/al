@@ -47,15 +47,15 @@ func runPackageRemove(packageName, providerName, profile string) error {
 		return fmt.Errorf("error loading packages config: %w", err)
 	}
 
-	found := false
+	var foundPkg *config.PackageConfig
 	for _, pkg := range packagesConfig.Packages {
 		if pkg.Name == packageName && pkg.Provider == providerName && pkg.Profile == profile {
-			found = true
+			foundPkg = &pkg
 			break
 		}
 	}
 
-	if !found {
+	if foundPkg == nil {
 		return fmt.Errorf("package '%s' with provider '%s' in profile '%s' not found", packageName, providerName, profile)
 	}
 
@@ -64,21 +64,23 @@ func runPackageRemove(packageName, providerName, profile string) error {
 	switch providerName {
 	case "brew":
 		p = provider.NewBrewProvider()
+	case "mas":
+		p = provider.NewMasProvider()
 	default:
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}
 
-	// Uninstall the package
-	if err := p.UninstallPackage(packageName); err != nil {
+	// Uninstall the package using ID
+	if err := p.UninstallPackage(foundPkg.ID); err != nil {
 		return fmt.Errorf("error uninstalling package: %w", err)
 	}
 
 	// Remove the package from config
-	if err := config.RemovePackage(packageName, providerName, profile); err != nil {
+	if err := config.RemovePackage(foundPkg.ID, providerName, profile); err != nil {
 		return fmt.Errorf("error removing package: %w", err)
 	}
 
-	fmt.Printf("Package '%s' has been successfully removed from profile '%s' with provider '%s'\n", packageName, profile, providerName)
+	fmt.Printf("Package '%s' (ID: %s) has been successfully removed from profile '%s' with provider '%s'\n", packageName, foundPkg.ID, profile, providerName)
 	return nil
 }
 

@@ -124,3 +124,13 @@ func SetDefaultProfile(profile string) error {
 	config.DefaultProfile = profile
 	return SaveAppConfig(config)
 }
+
+// GetDefaultAliases returns the default command aliases
+func GetDefaultAliases() map[string]string {
+	return map[string]string{
+		"promote": "package move {args} --to package.promote_to",
+		"add":     "package add",
+		"remove":  "package remove",
+		"list":    "package list",
+	}
+}

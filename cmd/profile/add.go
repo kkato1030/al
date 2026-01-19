@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -188,7 +189,7 @@ func selectProfilesMultipleUI(prompt string, excludeName string) ([]string, erro
 		return []string{}, nil
 	}
 
-	model := NewOrderedMultiSelectModel(availableProfiles, prompt, excludeName)
+	model := ui.NewOrderedMultiSelectModel(availableProfiles, prompt, excludeName)
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return nil, fmt.Errorf("error running TUI: %w", err)
@@ -216,7 +217,7 @@ func selectProfileSingleUI(prompt string, excludeName string) (string, error) {
 		return "", nil
 	}
 
-	model := NewSingleSelectModel(availableProfiles, prompt, excludeName)
+	model := ui.NewSingleSelectModel(availableProfiles, prompt, excludeName)
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return "", fmt.Errorf("error running TUI: %w", err)
@@ -227,7 +228,7 @@ func selectProfileSingleUI(prompt string, excludeName string) (string, error) {
 
 // selectPackageDuplicationUI allows selection of package duplication policy with UI
 func selectPackageDuplicationUI() (string, error) {
-	model := NewPackageDuplicationSelectModel()
+	model := ui.NewPackageDuplicationSelectModel()
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return "", fmt.Errorf("error running TUI: %w", err)

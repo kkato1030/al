@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
+	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -119,7 +120,7 @@ func runPackageRemoveInteractive(packageName, provider, profile string) error {
 	}
 
 	// Multiple matches, let user select with UI
-	model := NewPackageSelectModel(matchingPackages, fmt.Sprintf("Select package to remove (found %d matching packages)", len(matchingPackages)))
+	model := ui.NewPackageSelectModel(matchingPackages, fmt.Sprintf("Select package to remove (found %d matching packages)", len(matchingPackages)))
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running UI: %w", err)

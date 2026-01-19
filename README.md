@@ -12,6 +12,34 @@
 - シェル設定の管理
 - その他 Mac 環境に関連するあらゆるパッケージ・設定の管理
 
+## インストール
+
+### 最新版のインストール
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
+```
+
+### 特定バージョンのインストール
+
+```bash
+AL_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
+```
+
+### カスタムインストール先の指定
+
+デフォルトでは `/usr/local/bin` にインストールされますが、環境変数で変更できます：
+
+```bash
+AL_INSTALL_DIR=$HOME/bin curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
+```
+
+### インストールの確認
+
+```bash
+al version
+```
+
 ## 主要な概念
 
 ### Trial/Core モデル

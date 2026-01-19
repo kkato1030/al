@@ -10,6 +10,11 @@ import (
 
 var version = "0.1.0"
 
+// SetVersion sets the version string
+func SetVersion(v string) {
+	version = v
+}
+
 // NewRootCmd creates the root command
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{

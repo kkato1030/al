@@ -9,6 +9,12 @@ import (
 	"github.com/kkato1030/al/internal/config"
 )
 
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
+	GitCommit = "unknown"
+)
+
 func main() {
 	// Resolve aliases before executing
 	resolvedArgs, err := resolveAliases(os.Args[1:])
@@ -23,6 +29,9 @@ func main() {
 
 	// Update os.Args for cobra
 	os.Args = newArgs
+
+	// Set version from build flags
+	cmd.SetVersion(Version)
 
 	rootCmd := cmd.NewRootCmd()
 

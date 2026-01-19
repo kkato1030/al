@@ -1,0 +1,44 @@
+project_name: al
+
+builds:
+  - id: al
+    main: .
+    binary: al
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.BuildTime={{.Date}}
+      - -X main.GitCommit={{.Commit}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  mode: replace
+  header: |
+    ## {{ .TagName }}
+    
+    {{- if .ReleaseNotes }}
+    {{ .ReleaseNotes }}
+    {{- end }}
+
+snapshots:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

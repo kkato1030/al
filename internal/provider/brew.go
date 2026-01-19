@@ -257,6 +257,86 @@ func (p *BrewProvider) UninstallPackage(packageID string) error {
 	return nil
 }
 
+// UpgradePackage upgrades a package using brew
+// packageID is in format "{formula,cask,tap}:<package_name>"
+func (p *BrewProvider) UpgradePackage(packageID string) error {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
+	}
+
+	// Parse package ID
+	pkgType, pkgName, err := p.parsePackageID(packageID)
+	if err != nil {
+		return fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
+	// Run brew upgrade command
+	fmt.Printf("Upgrading %s using brew...\n", pkgName)
+	var cmd *exec.Cmd
+	if pkgType == "cask" {
+		cmd = exec.Command("brew", "upgrade", "--cask", pkgName)
+	} else if pkgType == "tap" {
+		// Taps don't have upgrade, but we can reinstall
+		cmd = exec.Command("brew", "tap", pkgName)
+	} else {
+		cmd = exec.Command("brew", "upgrade", pkgName)
+	}
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to upgrade package %s: %w", pkgName, err)
+	}
+
+	fmt.Printf("Successfully upgraded %s\n", pkgName)
+	return nil
+}
+
+// Upgrade upgrades brew itself
+func (p *BrewProvider) Upgrade() error {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
+	}
+
+	// Run brew update and upgrade
+	fmt.Println("Updating brew...")
+	updateCmd := exec.Command("brew", "update")
+	updateCmd.Stdin = os.Stdin
+	updateCmd.Stdout = os.Stdout
+	updateCmd.Stderr = os.Stderr
+
+	if err := updateCmd.Run(); err != nil {
+		return fmt.Errorf("failed to update brew: %w", err)
+	}
+
+	// Update version in config
+	version, err := p.GetVersion()
+	if err == nil {
+		providerConfig := config.ProviderConfig{
+			Name:        p.name,
+			InstalledAt: time.Now(),
+			Version:     version,
+		}
+		if err := config.AddOrUpdateProvider(providerConfig); err != nil {
+			fmt.Printf("Warning: failed to update provider config: %v\n", err)
+		}
+	}
+
+	fmt.Println("Successfully upgraded brew")
+	return nil
+}
+
 // SearchPackage searches for packages using brew search
 func (p *BrewProvider) SearchPackage(query string) ([]SearchResult, error) {
 	// Check if brew is installed

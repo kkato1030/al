@@ -27,6 +27,12 @@ type Provider interface {
 	// UninstallPackage uninstalls a package using the provider
 	UninstallPackage(packageID string) error
 
+	// UpgradePackage upgrades a package using the provider
+	UpgradePackage(packageID string) error
+
+	// Upgrade upgrades the provider itself (e.g., brew update, mas upgrade)
+	Upgrade() error
+
 	// SearchPackage searches for packages matching the query
 	SearchPackage(query string) ([]SearchResult, error)
 }

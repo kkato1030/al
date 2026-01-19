@@ -18,6 +18,7 @@ func NewPackageCmd() *cobra.Command {
 	packageCmd.AddCommand(NewPackageRemoveCmd())
 	packageCmd.AddCommand(NewPackageMoveCmd())
 	packageCmd.AddCommand(NewPackageSearchCmd())
+	packageCmd.AddCommand(NewPackageUpgradeCmd())
 
 	return packageCmd
 }

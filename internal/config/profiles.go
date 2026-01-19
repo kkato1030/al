@@ -106,6 +106,33 @@ func GetProfile(name string) (*ProfileConfig, error) {
 	return nil, nil // Profile not found
 }
 
+// RemoveProfile removes a profile from the configuration
+// TODO: In the future, this should also remove packages associated with the profile
+// and any generated config files related to the profile
+func RemoveProfile(name string) error {
+	config, err := LoadProfilesConfig()
+	if err != nil {
+		return err
+	}
+
+	// Find and remove the profile
+	found := false
+	for i, p := range config.Profiles {
+		if p.Name == name {
+			// Remove the profile by creating a new slice without it
+			config.Profiles = append(config.Profiles[:i], config.Profiles[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil // Profile not found, but don't return an error
+	}
+
+	return SaveProfilesConfig(config)
+}
+
 // GetProfilesConfigPath returns the path to the profiles.json file
 func GetProfilesConfigPath() (string, error) {
 	configDir, err := GetConfigDir()

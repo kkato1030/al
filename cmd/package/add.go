@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
+	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -146,7 +147,7 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 				}
 			} else {
 				// Multiple results, let user select with UI
-				model := NewSearchResultSelectModel(results, fmt.Sprintf("Select package (found %d package(s) for query '%s')", len(results), packageName))
+				model := ui.NewSearchResultSelectModel(results, fmt.Sprintf("Select package (found %d package(s) for query '%s')", len(results), packageName))
 				p := tea.NewProgram(model)
 				if _, err := p.Run(); err != nil {
 					return fmt.Errorf("error running UI: %w", err)
@@ -305,7 +306,7 @@ func selectProviderUI() (string, error) {
 		return "", fmt.Errorf("no providers available. Please add a provider first using 'al provider add'")
 	}
 
-	model := NewProviderSelectModel(providersConfig.Providers, "Provider", appConfig.DefaultProvider)
+	model := ui.NewProviderSelectModel(providersConfig.Providers, "Provider", appConfig.DefaultProvider)
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return "", fmt.Errorf("error running TUI: %w", err)
@@ -336,7 +337,7 @@ func selectProfileUI() (string, error) {
 		return "", fmt.Errorf("no profiles available. Please add a profile first using 'al profile add'")
 	}
 
-	model := NewProfileSelectModel(profilesConfig.Profiles, "Profile", appConfig.DefaultProfile)
+	model := ui.NewProfileSelectModel(profilesConfig.Profiles, "Profile", appConfig.DefaultProfile)
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {
 		return "", fmt.Errorf("error running TUI: %w", err)

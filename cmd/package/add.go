@@ -18,6 +18,7 @@ func NewPackageAddCmd() *cobra.Command {
 	var profile string
 	var version string
 	var description string
+	var packageID string
 
 	cmd := &cobra.Command{
 		Use:   "add [package-name]",
@@ -27,7 +28,7 @@ func NewPackageAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no package name provided, use fully interactive mode
 			if len(args) == 0 {
-				return runPackageAddInteractive("", provider, profile, version, description)
+				return runPackageAddInteractive("", provider, profile, version, description, packageID)
 			}
 
 			packageName := args[0]
@@ -73,7 +74,7 @@ func NewPackageAddCmd() *cobra.Command {
 				return fmt.Errorf("profile '%s' does not exist", finalProfile)
 			}
 
-			return runPackageAdd(packageName, finalProvider, finalProfile, version, description)
+			return runPackageAdd(packageName, finalProvider, finalProfile, version, description, packageID)
 		},
 	}
 
@@ -81,11 +82,12 @@ func NewPackageAddCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (required)")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Package version (optional)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Package description (optional)")
+	cmd.Flags().StringVarP(&packageID, "id", "i", "", "Package ID (required for mas, optional for brew)")
 
 	return cmd
 }
 
-func runPackageAdd(packageName, providerName, profile, version, description string) error {
+func runPackageAdd(packageName, providerName, profile, version, description, packageID string) error {
 	// Validate provider exists
 	providerConfig, err := config.GetProvider(providerName)
 	if err != nil {
@@ -104,6 +106,94 @@ func runPackageAdd(packageName, providerName, profile, version, description stri
 		return fmt.Errorf("profile '%s' does not exist", profile)
 	}
 
+	// Determine package ID and name based on provider
+	var finalID string
+	var finalName string
+	var p provider.Provider
+
+	switch providerName {
+	case "brew":
+		brewProvider := provider.NewBrewProvider()
+		p = brewProvider
+		// For brew, detect package type and generate ID in format "{formula,cask,tap}:<package_name>"
+		generatedID, err := brewProvider.GeneratePackageID(packageName)
+		if err != nil {
+			return fmt.Errorf("error detecting package type: %w", err)
+		}
+		finalID = generatedID
+		finalName = packageName
+	case "mas":
+		masProvider := provider.NewMasProvider()
+		p = masProvider
+		// For mas, if --id is not provided, search and let user select
+		if packageID == "" {
+			// Search for packages
+			results, err := masProvider.SearchPackage(packageName)
+			if err != nil {
+				return fmt.Errorf("error searching packages: %w", err)
+			}
+
+			if len(results) == 0 {
+				return fmt.Errorf("no packages found for query '%s'", packageName)
+			}
+
+			// If only one result, use it automatically
+			if len(results) == 1 {
+				finalID = results[0].ID
+				finalName = results[0].Name
+				if finalName == "" {
+					finalName = packageName
+				}
+			} else {
+				// Multiple results, let user select
+				fmt.Printf("\nFound %d package(s) for query '%s':\n\n", len(results), packageName)
+				for i, result := range results {
+					fmt.Printf("  %d. %s", i+1, result.Name)
+					if result.ID != "" {
+						fmt.Printf(" (ID: %s)", result.ID)
+					}
+					if result.Description != "" {
+						fmt.Printf(" - %s", result.Description)
+					}
+					fmt.Println()
+				}
+
+				scanner := bufio.NewScanner(os.Stdin)
+				fmt.Print("\nSelect package (number): ")
+				if !scanner.Scan() {
+					return fmt.Errorf("failed to read input")
+				}
+
+				input := strings.TrimSpace(scanner.Text())
+				if input == "" {
+					return fmt.Errorf("package selection is required")
+				}
+
+				idx, err := strconv.Atoi(input)
+				if err != nil {
+					return fmt.Errorf("invalid number: %s", input)
+				}
+
+				if idx < 1 || idx > len(results) {
+					return fmt.Errorf("number %d is out of range (1-%d)", idx, len(results))
+				}
+
+				selected := results[idx-1]
+				finalID = selected.ID
+				finalName = selected.Name
+				if finalName == "" {
+					finalName = packageName
+				}
+			}
+		} else {
+			// --id is provided
+			finalID = packageID
+			finalName = packageName
+		}
+	default:
+		return fmt.Errorf("unsupported provider: %s", providerName)
+	}
+
 	// Check if package already exists in config
 	packagesConfig, err := config.LoadPackagesConfig()
 	if err != nil {
@@ -112,33 +202,25 @@ func runPackageAdd(packageName, providerName, profile, version, description stri
 
 	packageExists := false
 	for _, existingPkg := range packagesConfig.Packages {
-		if existingPkg.Name == packageName && existingPkg.Provider == providerName && existingPkg.Profile == profile {
+		if existingPkg.ID == finalID && existingPkg.Provider == providerName && existingPkg.Profile == profile {
 			packageExists = true
 			break
 		}
 	}
 
-	// Get provider instance
-	var p provider.Provider
-	switch providerName {
-	case "brew":
-		p = provider.NewBrewProvider()
-	default:
-		return fmt.Errorf("unsupported provider: %s", providerName)
-	}
-
 	// Install the package only if it doesn't exist in config
 	if !packageExists {
-		if err := p.InstallPackage(packageName); err != nil {
+		if err := p.InstallPackage(finalID); err != nil {
 			return fmt.Errorf("error installing package: %w", err)
 		}
 	} else {
-		fmt.Printf("Package '%s' already exists in config, skipping installation\n", packageName)
+		fmt.Printf("Package with id '%s' already exists in config, skipping installation\n", finalID)
 	}
 
 	// Create package config
 	pkg := config.PackageConfig{
-		Name:        packageName,
+		ID:          finalID,
+		Name:        finalName,
 		Provider:    providerName,
 		Profile:     profile,
 		Version:     version,
@@ -151,14 +233,14 @@ func runPackageAdd(packageName, providerName, profile, version, description stri
 	}
 
 	if packageExists {
-		fmt.Printf("Package '%s' has been successfully updated in profile '%s' with provider '%s'\n", packageName, profile, providerName)
+		fmt.Printf("Package '%s' (ID: %s) has been successfully updated in profile '%s' with provider '%s'\n", finalName, finalID, profile, providerName)
 	} else {
-		fmt.Printf("Package '%s' has been successfully added to profile '%s' with provider '%s'\n", packageName, profile, providerName)
+		fmt.Printf("Package '%s' (ID: %s) has been successfully added to profile '%s' with provider '%s'\n", finalName, finalID, profile, providerName)
 	}
 	return nil
 }
 
-func runPackageAddInteractive(packageName, provider, profile, version, description string) error {
+func runPackageAddInteractive(packageName, provider, profile, version, description, packageID string) error {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	// Get package name (if not provided)
@@ -225,7 +307,7 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 		fmt.Printf("Description: %s\n", description)
 	}
 
-	return runPackageAdd(packageName, provider, profile, version, description)
+	return runPackageAdd(packageName, provider, profile, version, description, packageID)
 }
 
 // selectProvider allows selection of a provider

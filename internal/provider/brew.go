@@ -109,8 +109,77 @@ func (p *BrewProvider) SetupConfig() error {
 	return nil
 }
 
+// parsePackageID parses package ID in format "{formula,cask,tap}:<package_name>"
+// Returns package type and name
+func (p *BrewProvider) parsePackageID(packageID string) (pkgType, pkgName string, err error) {
+	parts := strings.SplitN(packageID, ":", 2)
+	if len(parts) != 2 {
+		// If no prefix, default to formula
+		return "formula", packageID, nil
+	}
+
+	pkgType = parts[0]
+	pkgName = parts[1]
+
+	if pkgType != "formula" && pkgType != "cask" && pkgType != "tap" {
+		return "", "", fmt.Errorf("invalid package type: %s (must be formula, cask, or tap)", pkgType)
+	}
+
+	return pkgType, pkgName, nil
+}
+
+// detectPackageType detects if a package is a formula, cask, or tap
+func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
+	// Try cask first (casks can have same name as formulas)
+	cmd := exec.Command("brew", "info", "--cask", packageName)
+	err := cmd.Run()
+	if err == nil {
+		return "cask", nil
+	}
+
+	// Try formula
+	cmd = exec.Command("brew", "info", packageName)
+	err = cmd.Run()
+	if err == nil {
+		return "formula", nil
+	}
+
+	// Try tap (format: tap_name/package_name or just tap_name)
+	if strings.Contains(packageName, "/") {
+		parts := strings.SplitN(packageName, "/", 2)
+		if len(parts) == 2 {
+			// Check if tap exists
+			cmd = exec.Command("brew", "tap-info", parts[0])
+			err = cmd.Run()
+			if err == nil {
+				return "tap", nil
+			}
+		}
+	} else {
+		// Check if it's a tap name itself
+		cmd = exec.Command("brew", "tap-info", packageName)
+		err = cmd.Run()
+		if err == nil {
+			return "tap", nil
+		}
+	}
+
+	// Default to formula if cannot determine
+	return "formula", nil
+}
+
+// GeneratePackageID generates package ID in format "{formula,cask,tap}:<package_name>"
+func (p *BrewProvider) GeneratePackageID(packageName string) (string, error) {
+	pkgType, err := p.detectPackageType(packageName)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%s", pkgType, packageName), nil
+}
+
 // InstallPackage installs a package using brew
-func (p *BrewProvider) InstallPackage(packageName string) error {
+// packageID is in format "{formula,cask,tap}:<package_name>"
+func (p *BrewProvider) InstallPackage(packageID string) error {
 	// Check if brew is installed
 	installed, err := p.CheckInstalled()
 	if err != nil {
@@ -120,23 +189,37 @@ func (p *BrewProvider) InstallPackage(packageName string) error {
 		return fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
 	}
 
+	// Parse package ID
+	pkgType, pkgName, err := p.parsePackageID(packageID)
+	if err != nil {
+		return fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
 	// Run brew install command
-	fmt.Printf("Installing %s using brew...\n", packageName)
-	cmd := exec.Command("brew", "install", packageName)
+	fmt.Printf("Installing %s using brew...\n", pkgName)
+	var cmd *exec.Cmd
+	if pkgType == "cask" {
+		cmd = exec.Command("brew", "install", "--cask", pkgName)
+	} else if pkgType == "tap" {
+		cmd = exec.Command("brew", "tap", pkgName)
+	} else {
+		cmd = exec.Command("brew", "install", pkgName)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to install package %s: %w", packageName, err)
+		return fmt.Errorf("failed to install package %s: %w", pkgName, err)
 	}
 
-	fmt.Printf("Successfully installed %s\n", packageName)
+	fmt.Printf("Successfully installed %s\n", pkgName)
 	return nil
 }
 
 // UninstallPackage uninstalls a package using brew
-func (p *BrewProvider) UninstallPackage(packageName string) error {
+// packageID is in format "{formula,cask,tap}:<package_name>"
+func (p *BrewProvider) UninstallPackage(packageID string) error {
 	// Check if brew is installed
 	installed, err := p.CheckInstalled()
 	if err != nil {
@@ -146,17 +229,76 @@ func (p *BrewProvider) UninstallPackage(packageName string) error {
 		return fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
 	}
 
+	// Parse package ID
+	pkgType, pkgName, err := p.parsePackageID(packageID)
+	if err != nil {
+		return fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
 	// Run brew uninstall command
-	fmt.Printf("Uninstalling %s using brew...\n", packageName)
-	cmd := exec.Command("brew", "uninstall", packageName)
+	fmt.Printf("Uninstalling %s using brew...\n", pkgName)
+	var cmd *exec.Cmd
+	if pkgType == "cask" {
+		cmd = exec.Command("brew", "uninstall", "--cask", pkgName)
+	} else if pkgType == "tap" {
+		cmd = exec.Command("brew", "untap", pkgName)
+	} else {
+		cmd = exec.Command("brew", "uninstall", pkgName)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to uninstall package %s: %w", packageName, err)
+		return fmt.Errorf("failed to uninstall package %s: %w", pkgName, err)
 	}
 
-	fmt.Printf("Successfully uninstalled %s\n", packageName)
+	fmt.Printf("Successfully uninstalled %s\n", pkgName)
 	return nil
+}
+
+// SearchPackage searches for packages using brew search
+func (p *BrewProvider) SearchPackage(query string) ([]SearchResult, error) {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return nil, fmt.Errorf("brew is not installed. Please install it first using 'al provider add brew'")
+	}
+
+	// Run brew search command
+	cmd := exec.Command("brew", "search", query)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to search packages: %w", err)
+	}
+
+	// Parse output - brew search returns one package name per line
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	results := make([]SearchResult, 0, len(lines))
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Detect package type and generate ID
+		pkgType, err := p.detectPackageType(line)
+		if err != nil {
+			// If detection fails, default to formula
+			pkgType = "formula"
+		}
+
+		pkgID := fmt.Sprintf("%s:%s", pkgType, line)
+		results = append(results, SearchResult{
+			ID:          pkgID,
+			Name:        line,
+			Description: "",
+		})
+	}
+
+	return results, nil
 }

@@ -70,12 +70,12 @@ func runPackageMove(packageName, toProfile string) error {
 
 	// Check if package already exists in target profile with same provider
 	for _, pkg := range matchingPackages {
-		// Check if same package (name + provider) already exists in target profile
+		// Check if same package (ID + provider) already exists in target profile
 		for _, existingPkg := range packagesConfig.Packages {
-			if existingPkg.Name == packageName &&
+			if existingPkg.ID == pkg.ID &&
 				existingPkg.Provider == pkg.Provider &&
 				existingPkg.Profile == toProfile {
-				return fmt.Errorf("package '%s' with provider '%s' already exists in profile '%s'", packageName, pkg.Provider, toProfile)
+				return fmt.Errorf("package '%s' (ID: %s) with provider '%s' already exists in profile '%s'", packageName, pkg.ID, pkg.Provider, toProfile)
 			}
 		}
 	}
@@ -126,13 +126,26 @@ func runPackageMove(packageName, toProfile string) error {
 }
 
 func movePackage(pkg config.PackageConfig, toProfile string) error {
+	// Check if package already exists in target profile with same ID
+	packagesConfig, err := config.LoadPackagesConfig()
+	if err != nil {
+		return fmt.Errorf("error loading packages config: %w", err)
+	}
+
+	for _, existingPkg := range packagesConfig.Packages {
+		if existingPkg.ID == pkg.ID && existingPkg.Provider == pkg.Provider && existingPkg.Profile == toProfile {
+			return fmt.Errorf("package with ID '%s' and provider '%s' already exists in profile '%s'", pkg.ID, pkg.Provider, toProfile)
+		}
+	}
+
 	// Remove package from current profile
-	if err := config.RemovePackage(pkg.Name, pkg.Provider, pkg.Profile); err != nil {
+	if err := config.RemovePackage(pkg.ID, pkg.Provider, pkg.Profile); err != nil {
 		return fmt.Errorf("error removing package from current profile: %w", err)
 	}
 
-	// Add package to target profile (preserve version, description, and InstalledAt)
+	// Add package to target profile (preserve ID, version, description, and InstalledAt)
 	newPkg := config.PackageConfig{
+		ID:          pkg.ID,
 		Name:        pkg.Name,
 		Provider:    pkg.Provider,
 		Profile:     toProfile,
@@ -145,6 +158,6 @@ func movePackage(pkg config.PackageConfig, toProfile string) error {
 		return fmt.Errorf("error adding package to target profile: %w", err)
 	}
 
-	fmt.Printf("Package '%s' has been successfully moved from profile '%s' to profile '%s'\n", pkg.Name, pkg.Profile, toProfile)
+	fmt.Printf("Package '%s' (ID: %s) has been successfully moved from profile '%s' to profile '%s'\n", pkg.Name, pkg.ID, pkg.Profile, toProfile)
 	return nil
 }

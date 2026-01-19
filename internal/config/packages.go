@@ -10,7 +10,8 @@ import (
 
 // PackageConfig represents a package configuration
 type PackageConfig struct {
-	Name        string    `json:"name"`
+	ID          string    `json:"id"`           // required: brew="{formula,cask,tap}:<package_name>", mas="<app_id>"
+	Name        string    `json:"name"`          // 表示用の名前（brewではidと同じ、masでは任意）
 	Provider    string    `json:"provider"`
 	Profile     string    `json:"profile"`
 	Version     string    `json:"version,omitempty"`
@@ -76,10 +77,10 @@ func AddPackage(pkg PackageConfig) error {
 		return err
 	}
 
-	// Check if package already exists with the same name, provider, and profile
+	// Check if package already exists with the same id, provider, and profile
 	for _, existingPkg := range config.Packages {
-		if existingPkg.Name == pkg.Name && existingPkg.Provider == pkg.Provider && existingPkg.Profile == pkg.Profile {
-			return fmt.Errorf("package '%s' already exists for provider '%s' in profile '%s'", pkg.Name, pkg.Provider, pkg.Profile)
+		if existingPkg.ID == pkg.ID && existingPkg.Provider == pkg.Provider && existingPkg.Profile == pkg.Profile {
+			return fmt.Errorf("package with id '%s' already exists for provider '%s' in profile '%s'", pkg.ID, pkg.Provider, pkg.Profile)
 		}
 	}
 
@@ -101,10 +102,10 @@ func AddOrUpdatePackage(pkg PackageConfig) error {
 		return err
 	}
 
-	// Check if package already exists with the same name, provider, and profile
+	// Check if package already exists with the same id, provider, and profile
 	found := false
 	for i, existingPkg := range config.Packages {
-		if existingPkg.Name == pkg.Name && existingPkg.Provider == pkg.Provider && existingPkg.Profile == pkg.Profile {
+		if existingPkg.ID == pkg.ID && existingPkg.Provider == pkg.Provider && existingPkg.Profile == pkg.Profile {
 			// Update existing package
 			// Preserve InstalledAt if not provided in new config
 			if pkg.InstalledAt.IsZero() {
@@ -129,8 +130,8 @@ func AddOrUpdatePackage(pkg PackageConfig) error {
 }
 
 // RemovePackage removes a package from the configuration
-// Package is identified by name, provider, and profile combination
-func RemovePackage(name, provider, profile string) error {
+// Package is identified by id, provider, and profile combination
+func RemovePackage(id, provider, profile string) error {
 	config, err := LoadPackagesConfig()
 	if err != nil {
 		return err
@@ -139,7 +140,7 @@ func RemovePackage(name, provider, profile string) error {
 	// Find and remove the package
 	found := false
 	for i, pkg := range config.Packages {
-		if pkg.Name == name && pkg.Provider == provider && pkg.Profile == profile {
+		if pkg.ID == id && pkg.Provider == provider && pkg.Profile == profile {
 			// Remove the package by creating a new slice without it
 			config.Packages = append(config.Packages[:i], config.Packages[i+1:]...)
 			found = true
@@ -148,7 +149,7 @@ func RemovePackage(name, provider, profile string) error {
 	}
 
 	if !found {
-		return fmt.Errorf("package '%s' with provider '%s' in profile '%s' not found", name, provider, profile)
+		return fmt.Errorf("package with id '%s' with provider '%s' in profile '%s' not found", id, provider, profile)
 	}
 
 	return SavePackagesConfig(config)

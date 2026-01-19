@@ -1,5 +1,12 @@
 package provider
 
+// SearchResult represents a search result from a provider
+type SearchResult struct {
+	ID          string
+	Name        string
+	Description string
+}
+
 // Provider represents a package manager provider
 type Provider interface {
 	// Name returns the name of the provider
@@ -15,8 +22,11 @@ type Provider interface {
 	SetupConfig() error
 
 	// InstallPackage installs a package using the provider
-	InstallPackage(packageName string) error
+	InstallPackage(packageID string) error
 
 	// UninstallPackage uninstalls a package using the provider
-	UninstallPackage(packageName string) error
+	UninstallPackage(packageID string) error
+
+	// SearchPackage searches for packages matching the query
+	SearchPackage(query string) ([]SearchResult, error)
 }

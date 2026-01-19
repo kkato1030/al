@@ -13,4 +13,7 @@ type Provider interface {
 
 	// SetupConfig sets up the configuration for the provider
 	SetupConfig() error
+
+	// InstallPackage installs a package using the provider
+	InstallPackage(packageName string) error
 }

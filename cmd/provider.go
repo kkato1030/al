@@ -13,6 +13,7 @@ func NewProviderCmd() *cobra.Command {
 	}
 
 	providerCmd.AddCommand(NewProviderAddCmd())
+	providerCmd.AddCommand(NewProviderListCmd())
 
 	return providerCmd
 }

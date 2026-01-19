@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	configcmd "github.com/kkato1030/al/cmd/config"
 	"github.com/kkato1030/al/cmd/package"
 	"github.com/kkato1030/al/cmd/profile"
 	"github.com/kkato1030/al/cmd/provider"
@@ -18,6 +19,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(NewVersionCmd())
+	rootCmd.AddCommand(configcmd.NewConfigCmd())
 	rootCmd.AddCommand(provider.NewProviderCmd())
 	rootCmd.AddCommand(profile.NewProfileCmd())
 	rootCmd.AddCommand(packagecmd.NewPackageCmd())

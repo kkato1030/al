@@ -26,12 +26,6 @@ checksum:
 
 release:
   mode: replace
-  header: |
-    ## {{ .TagName }}
-    
-    {{- if .ReleaseNotes }}
-    {{ .ReleaseNotes }}
-    {{- end }}
 
 changelog:
   sort: asc

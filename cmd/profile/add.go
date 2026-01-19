@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -135,7 +135,7 @@ func runProfileAddInteractive(name, description, extends, promoteTo, packageDupl
 
 	// Get extends (multiple selection)
 	if extends == "" {
-		selectedExtends, err := selectProfilesMultiple(scanner, "Extends", name)
+		selectedExtends, err := selectProfilesMultipleUI("Extends", name)
 		if err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func runProfileAddInteractive(name, description, extends, promoteTo, packageDupl
 
 	// Get promote_to (single selection)
 	if promoteTo == "" {
-		selectedPromoteTo, err := selectProfileSingle(scanner, "Promote to", name)
+		selectedPromoteTo, err := selectProfileSingleUI("Promote to", name)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func runProfileAddInteractive(name, description, extends, promoteTo, packageDupl
 
 	// Get package_duplication
 	if packageDuplication == "" {
-		selectedPackageDuplication, err := selectPackageDuplication(scanner)
+		selectedPackageDuplication, err := selectPackageDuplicationUI()
 		if err != nil {
 			return err
 		}
@@ -169,8 +169,8 @@ func runProfileAddInteractive(name, description, extends, promoteTo, packageDupl
 	return runProfileAdd(name, description, extends, promoteTo, packageDuplication)
 }
 
-// selectProfilesMultiple allows multiple selection of profiles
-func selectProfilesMultiple(scanner *bufio.Scanner, prompt string, excludeName string) ([]string, error) {
+// selectProfilesMultipleUI allows multiple selection of profiles with UI
+func selectProfilesMultipleUI(prompt string, excludeName string) ([]string, error) {
 	profilesConfig, err := config.LoadProfilesConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error loading profiles config: %w", err)
@@ -185,60 +185,20 @@ func selectProfilesMultiple(scanner *bufio.Scanner, prompt string, excludeName s
 	}
 
 	if len(availableProfiles) == 0 {
-		fmt.Printf("%s: (no existing profiles, press Enter to skip)\n", prompt)
-		if !scanner.Scan() {
-			return nil, fmt.Errorf("failed to read input")
-		}
 		return []string{}, nil
 	}
 
-	fmt.Printf("\n%s:\n", prompt)
-	for i, p := range availableProfiles {
-		fmt.Printf("  %d. %s", i+1, p.Name)
-		if p.Description != "" {
-			fmt.Printf(" - %s", p.Description)
-		}
-		fmt.Println()
-	}
-	fmt.Print("Select profiles (comma-separated numbers, e.g., 1,3,5, optional, press Enter to skip): ")
-
-	if !scanner.Scan() {
-		return nil, fmt.Errorf("failed to read input")
+	model := NewOrderedMultiSelectModel(availableProfiles, prompt, excludeName)
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return nil, fmt.Errorf("error running TUI: %w", err)
 	}
 
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
-		return []string{}, nil
-	}
-
-	// Parse comma-separated numbers
-	numberStrs := strings.Split(input, ",")
-	selected := []string{}
-	selectedIndices := make(map[int]bool)
-
-	for _, numStr := range numberStrs {
-		numStr = strings.TrimSpace(numStr)
-		idx, err := strconv.Atoi(numStr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid number: %s", numStr)
-		}
-
-		if idx < 1 || idx > len(availableProfiles) {
-			return nil, fmt.Errorf("number %d is out of range (1-%d)", idx, len(availableProfiles))
-		}
-
-		// Avoid duplicates
-		if !selectedIndices[idx-1] {
-			selectedIndices[idx-1] = true
-			selected = append(selected, availableProfiles[idx-1].Name)
-		}
-	}
-
-	return selected, nil
+	return model.GetSelected(), nil
 }
 
-// selectProfileSingle allows single selection of a profile
-func selectProfileSingle(scanner *bufio.Scanner, prompt string, excludeName string) (string, error) {
+// selectProfileSingleUI allows single selection of a profile with UI
+func selectProfileSingleUI(prompt string, excludeName string) (string, error) {
 	profilesConfig, err := config.LoadProfilesConfig()
 	if err != nil {
 		return "", fmt.Errorf("error loading profiles config: %w", err)
@@ -253,74 +213,26 @@ func selectProfileSingle(scanner *bufio.Scanner, prompt string, excludeName stri
 	}
 
 	if len(availableProfiles) == 0 {
-		fmt.Printf("%s: (no existing profiles, press Enter to skip)\n", prompt)
-		if !scanner.Scan() {
-			return "", fmt.Errorf("failed to read input")
-		}
 		return "", nil
 	}
 
-	fmt.Printf("\n%s:\n", prompt)
-	for i, p := range availableProfiles {
-		fmt.Printf("  %d. %s", i+1, p.Name)
-		if p.Description != "" {
-			fmt.Printf(" - %s", p.Description)
-		}
-		fmt.Println()
-	}
-	fmt.Print("Select profile (number, optional, press Enter to skip): ")
-
-	if !scanner.Scan() {
-		return "", fmt.Errorf("failed to read input")
+	model := NewSingleSelectModel(availableProfiles, prompt, excludeName)
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return "", fmt.Errorf("error running TUI: %w", err)
 	}
 
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
-		return "", nil
-	}
-
-	idx, err := strconv.Atoi(input)
-	if err != nil {
-		return "", fmt.Errorf("invalid number: %s", input)
-	}
-
-	if idx < 1 || idx > len(availableProfiles) {
-		return "", fmt.Errorf("number %d is out of range (1-%d)", idx, len(availableProfiles))
-	}
-
-	return availableProfiles[idx-1].Name, nil
+	return model.GetSelected(), nil
 }
 
-// selectPackageDuplication allows selection of package duplication policy
-func selectPackageDuplication(scanner *bufio.Scanner) (string, error) {
-	fmt.Printf("\nPackage duplication:\n")
-	fmt.Println("  1. forbid - Packages in this profile cannot be installed in other profiles")
-	fmt.Println("  2. allow - Packages can be installed in other profiles")
-	fmt.Println("  3. warn - Warn when installing packages in other profiles (default)")
-	fmt.Print("Select option (1-3, default: 3, press Enter for default): ")
-
-	if !scanner.Scan() {
-		return "", fmt.Errorf("failed to read input")
+// selectPackageDuplicationUI allows selection of package duplication policy with UI
+func selectPackageDuplicationUI() (string, error) {
+	model := NewPackageDuplicationSelectModel()
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return "", fmt.Errorf("error running TUI: %w", err)
 	}
 
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
-		return "warn", nil
-	}
-
-	idx, err := strconv.Atoi(input)
-	if err != nil {
-		return "", fmt.Errorf("invalid number: %s", input)
-	}
-
-	switch idx {
-	case 1:
-		return "forbid", nil
-	case 2:
-		return "allow", nil
-	case 3:
-		return "warn", nil
-	default:
-		return "", fmt.Errorf("number %d is out of range (1-3)", idx)
-	}
+	return model.GetSelected(), nil
 }
+

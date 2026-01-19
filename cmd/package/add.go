@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
@@ -145,40 +145,18 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 					finalName = packageName
 				}
 			} else {
-				// Multiple results, let user select
-				fmt.Printf("\nFound %d package(s) for query '%s':\n\n", len(results), packageName)
-				for i, result := range results {
-					fmt.Printf("  %d. %s", i+1, result.Name)
-					if result.ID != "" {
-						fmt.Printf(" (ID: %s)", result.ID)
-					}
-					if result.Description != "" {
-						fmt.Printf(" - %s", result.Description)
-					}
-					fmt.Println()
+				// Multiple results, let user select with UI
+				model := NewSearchResultSelectModel(results, fmt.Sprintf("Select package (found %d package(s) for query '%s')", len(results), packageName))
+				p := tea.NewProgram(model)
+				if _, err := p.Run(); err != nil {
+					return fmt.Errorf("error running UI: %w", err)
 				}
 
-				scanner := bufio.NewScanner(os.Stdin)
-				fmt.Print("\nSelect package (number): ")
-				if !scanner.Scan() {
-					return fmt.Errorf("failed to read input")
-				}
-
-				input := strings.TrimSpace(scanner.Text())
-				if input == "" {
+				selected := model.GetSelected()
+				if selected == nil {
 					return fmt.Errorf("package selection is required")
 				}
 
-				idx, err := strconv.Atoi(input)
-				if err != nil {
-					return fmt.Errorf("invalid number: %s", input)
-				}
-
-				if idx < 1 || idx > len(results) {
-					return fmt.Errorf("number %d is out of range (1-%d)", idx, len(results))
-				}
-
-				selected := results[idx-1]
 				finalID = selected.ID
 				finalName = selected.Name
 				if finalName == "" {
@@ -259,7 +237,7 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 
 	// Get provider
 	if provider == "" {
-		selectedProvider, err := selectProvider(scanner)
+		selectedProvider, err := selectProviderUI()
 		if err != nil {
 			return err
 		}
@@ -273,7 +251,7 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 
 	// Get profile
 	if profile == "" {
-		selectedProfile, err := selectProfile(scanner)
+		selectedProfile, err := selectProfileUI()
 		if err != nil {
 			return err
 		}
@@ -310,8 +288,8 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 	return runPackageAdd(packageName, provider, profile, version, description, packageID)
 }
 
-// selectProvider allows selection of a provider
-func selectProvider(scanner *bufio.Scanner) (string, error) {
+// selectProviderUI allows selection of a provider with UI
+func selectProviderUI() (string, error) {
 	// Load global config to check for default provider
 	appConfig, err := config.LoadAppConfig()
 	if err != nil {
@@ -327,63 +305,22 @@ func selectProvider(scanner *bufio.Scanner) (string, error) {
 		return "", fmt.Errorf("no providers available. Please add a provider first using 'al provider add'")
 	}
 
-	// Find default provider index
-	defaultIdx := -1
-	if appConfig.DefaultProvider != "" {
-		for i, p := range providersConfig.Providers {
-			if p.Name == appConfig.DefaultProvider {
-				defaultIdx = i
-				break
-			}
-		}
+	model := NewProviderSelectModel(providersConfig.Providers, "Provider", appConfig.DefaultProvider)
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return "", fmt.Errorf("error running TUI: %w", err)
 	}
 
-	fmt.Printf("\nProviders:\n")
-	for i, p := range providersConfig.Providers {
-		fmt.Printf("  %d. %s", i+1, p.Name)
-		if i == defaultIdx {
-			fmt.Printf(" (default)")
-		}
-		if p.Version != "" {
-			fmt.Printf(" (version: %s)", p.Version)
-		}
-		fmt.Println()
-	}
-
-	// Build prompt with default info
-	prompt := "Select provider (number"
-	if defaultIdx >= 0 {
-		prompt += fmt.Sprintf(", default: %s, press Enter to use", providersConfig.Providers[defaultIdx].Name)
-	}
-	prompt += "): "
-	fmt.Print(prompt)
-
-	if !scanner.Scan() {
-		return "", fmt.Errorf("failed to read input")
-	}
-
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
-		if defaultIdx >= 0 {
-			return providersConfig.Providers[defaultIdx].Name, nil
-		}
+	selected := model.GetSelected()
+	if selected == "" {
 		return "", fmt.Errorf("provider selection is required")
 	}
 
-	idx, err := strconv.Atoi(input)
-	if err != nil {
-		return "", fmt.Errorf("invalid number: %s", input)
-	}
-
-	if idx < 1 || idx > len(providersConfig.Providers) {
-		return "", fmt.Errorf("number %d is out of range (1-%d)", idx, len(providersConfig.Providers))
-	}
-
-	return providersConfig.Providers[idx-1].Name, nil
+	return selected, nil
 }
 
-// selectProfile allows selection of a profile
-func selectProfile(scanner *bufio.Scanner) (string, error) {
+// selectProfileUI allows selection of a profile with UI
+func selectProfileUI() (string, error) {
 	// Load global config to check for default profile
 	appConfig, err := config.LoadAppConfig()
 	if err != nil {
@@ -399,57 +336,16 @@ func selectProfile(scanner *bufio.Scanner) (string, error) {
 		return "", fmt.Errorf("no profiles available. Please add a profile first using 'al profile add'")
 	}
 
-	// Find default profile index
-	defaultIdx := -1
-	if appConfig.DefaultProfile != "" {
-		for i, p := range profilesConfig.Profiles {
-			if p.Name == appConfig.DefaultProfile {
-				defaultIdx = i
-				break
-			}
-		}
+	model := NewProfileSelectModel(profilesConfig.Profiles, "Profile", appConfig.DefaultProfile)
+	p := tea.NewProgram(model)
+	if _, err := p.Run(); err != nil {
+		return "", fmt.Errorf("error running TUI: %w", err)
 	}
 
-	fmt.Printf("\nProfiles:\n")
-	for i, p := range profilesConfig.Profiles {
-		fmt.Printf("  %d. %s", i+1, p.Name)
-		if i == defaultIdx {
-			fmt.Printf(" (default)")
-		}
-		if p.Description != "" {
-			fmt.Printf(" - %s", p.Description)
-		}
-		fmt.Println()
-	}
-
-	// Build prompt with default info
-	prompt := "Select profile (number"
-	if defaultIdx >= 0 {
-		prompt += fmt.Sprintf(", default: %s, press Enter to use", profilesConfig.Profiles[defaultIdx].Name)
-	}
-	prompt += "): "
-	fmt.Print(prompt)
-
-	if !scanner.Scan() {
-		return "", fmt.Errorf("failed to read input")
-	}
-
-	input := strings.TrimSpace(scanner.Text())
-	if input == "" {
-		if defaultIdx >= 0 {
-			return profilesConfig.Profiles[defaultIdx].Name, nil
-		}
+	selected := model.GetSelected()
+	if selected == "" {
 		return "", fmt.Errorf("profile selection is required")
 	}
 
-	idx, err := strconv.Atoi(input)
-	if err != nil {
-		return "", fmt.Errorf("invalid number: %s", input)
-	}
-
-	if idx < 1 || idx > len(profilesConfig.Profiles) {
-		return "", fmt.Errorf("number %d is out of range (1-%d)", idx, len(profilesConfig.Profiles))
-	}
-
-	return profilesConfig.Profiles[idx-1].Name, nil
+	return selected, nil
 }

@@ -33,9 +33,6 @@ release:
     {{ .ReleaseNotes }}
     {{- end }}
 
-snapshots:
-  name_template: "{{ .Tag }}-next"
-
 changelog:
   sort: asc
   filters:

@@ -14,6 +14,7 @@ func NewProfileCmd() *cobra.Command {
 
 	profileCmd.AddCommand(NewProfileAddCmd())
 	profileCmd.AddCommand(NewProfileListCmd())
+	profileCmd.AddCommand(NewProfileShowCmd())
 
 	return profileCmd
 }

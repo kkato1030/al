@@ -10,6 +10,7 @@ import (
 type ProfileConfig struct {
 	Name               string   `json:"name"`
 	Description        string   `json:"description,omitempty"`
+	Stage              string   `json:"stage,omitempty"` // "stable" or "trial"
 	Extends            []string `json:"extends,omitempty"`
 	PromoteTo          string   `json:"promote_to,omitempty"`
 	PackageDuplication string   `json:"package_duplication,omitempty"`

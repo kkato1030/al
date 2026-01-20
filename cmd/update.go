@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -212,15 +213,40 @@ func performUpdate(release *Release) error {
 		return fmt.Errorf("binary not found in archive")
 	}
 
-	// Make binary executable
-	if err := os.Chmod(binaryPath, 0755); err != nil {
-		return fmt.Errorf("failed to make binary executable: %w", err)
+	// Get current binary's permissions and ownership to preserve them
+	var currentInfo os.FileInfo
+	var currentUID, currentGID int
+	currentInfo, err = os.Stat(currentBinary)
+	if err != nil {
+		return fmt.Errorf("failed to stat current binary: %w", err)
+	}
+	currentMode := currentInfo.Mode()
+
+	// Try to get ownership (may fail on some systems, that's okay)
+	if stat, ok := currentInfo.Sys().(*syscall.Stat_t); ok {
+		currentUID = int(stat.Uid)
+		currentGID = int(stat.Gid)
 	}
 
-	// Check if we need sudo
+	// Set permissions on new binary to match current binary
+	if err := os.Chmod(binaryPath, currentMode); err != nil {
+		return fmt.Errorf("failed to set permissions on new binary: %w", err)
+	}
+
+	// Try to set ownership if we got it (ignore errors as it may not be necessary)
+	if currentUID != 0 || currentGID != 0 {
+		os.Chown(binaryPath, currentUID, currentGID)
+	}
+
+	// Check if we need sudo by trying to create a temp file in the same directory
 	needsSudo := false
-	if err := os.WriteFile(currentBinary, []byte("test"), 0644); err != nil {
+	binaryDir := filepath.Dir(currentBinary)
+	testFile := filepath.Join(binaryDir, ".al-update-test")
+	if testFileHandle, err := os.Create(testFile); err != nil {
 		needsSudo = true
+	} else {
+		testFileHandle.Close()
+		os.Remove(testFile)
 	}
 
 	if needsSudo {
@@ -231,7 +257,7 @@ func performUpdate(release *Release) error {
 			return fmt.Errorf("failed to install update: %w", err)
 		}
 	} else {
-		// Replace the binary directly
+		// Replace the binary directly using atomic rename
 		fmt.Println("Installing update...")
 		if err := os.Rename(binaryPath, currentBinary); err != nil {
 			return fmt.Errorf("failed to install update: %w", err)

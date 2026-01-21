@@ -46,6 +46,7 @@ func GetProvidersConfigPath() (string, error) {
 type AppConfig struct {
 	DefaultProvider string `json:"default_provider,omitempty"`
 	DefaultProfile  string `json:"default_profile,omitempty"`
+	DefaultStage    string `json:"default_stage,omitempty"`
 }
 
 // GetConfigPath returns the path to the config.json file
@@ -122,6 +123,17 @@ func SetDefaultProfile(profile string) error {
 	}
 
 	config.DefaultProfile = profile
+	return SaveAppConfig(config)
+}
+
+// SetDefaultStage sets the default stage
+func SetDefaultStage(stage string) error {
+	config, err := LoadAppConfig()
+	if err != nil {
+		return err
+	}
+
+	config.DefaultStage = stage
 	return SaveAppConfig(config)
 }
 

@@ -2,8 +2,11 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 // ProfileConfig represents a profile configuration
@@ -142,4 +145,63 @@ func GetProfilesConfigPath() (string, error) {
 	}
 
 	return filepath.Join(configDir, "profiles.json"), nil
+}
+
+// ValidateProfileName validates that a profile name contains only allowed characters
+// Allowed characters: -, _, #, @, ., alphanumeric
+func ValidateProfileName(name string) error {
+	if name == "" {
+		return fmt.Errorf("profile name cannot be empty")
+	}
+
+	// Regular expression to match allowed characters: -, _, #, @, ., and alphanumeric
+	validPattern := regexp.MustCompile(`^[a-zA-Z0-9_#@.-]+$`)
+	if !validPattern.MatchString(name) {
+		return fmt.Errorf("profile name '%s' contains invalid characters. Only alphanumeric characters, -, _, #, @, and . are allowed", name)
+	}
+
+	return nil
+}
+
+// ParseProfileName parses a profile name into profile_name and stage_name
+// Format: profile_name.stage_name
+// Returns profile_name and stage_name (empty string if no stage)
+func ParseProfileName(fullName string) (profileName string, stageName string, err error) {
+	if err := ValidateProfileName(fullName); err != nil {
+		return "", "", err
+	}
+
+	parts := strings.SplitN(fullName, ".", 2)
+	if len(parts) == 1 {
+		// No stage specified
+		return parts[0], "", nil
+	}
+
+	// Both profile_name and stage_name must be validated
+	if err := ValidateProfileName(parts[0]); err != nil {
+		return "", "", fmt.Errorf("invalid profile_name in '%s': %w", fullName, err)
+	}
+	if err := ValidateProfileName(parts[1]); err != nil {
+		return "", "", fmt.Errorf("invalid stage_name in '%s': %w", fullName, err)
+	}
+
+	return parts[0], parts[1], nil
+}
+
+// BuildProfileName builds a full profile name from profile_name and stage_name
+// Format: profile_name.stage_name (or just profile_name if stage is empty)
+func BuildProfileName(profileName, stageName string) (string, error) {
+	if err := ValidateProfileName(profileName); err != nil {
+		return "", err
+	}
+
+	if stageName == "" {
+		return profileName, nil
+	}
+
+	if err := ValidateProfileName(stageName); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s.%s", profileName, stageName), nil
 }

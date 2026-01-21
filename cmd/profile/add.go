@@ -55,6 +55,11 @@ func NewProfileAddCmd() *cobra.Command {
 }
 
 func runProfileAdd(name, description, extendsStr, promoteTo, packageDuplication string) error {
+	// Validate profile name
+	if err := config.ValidateProfileName(name); err != nil {
+		return fmt.Errorf("invalid profile name: %w", err)
+	}
+
 	// Parse extends if provided
 	var extends []string
 	if extendsStr != "" {
@@ -62,6 +67,10 @@ func runProfileAdd(name, description, extendsStr, promoteTo, packageDuplication 
 		// Trim whitespace from each profile name
 		for i, e := range extends {
 			extends[i] = strings.TrimSpace(e)
+			// Validate each extended profile name
+			if err := config.ValidateProfileName(extends[i]); err != nil {
+				return fmt.Errorf("invalid extended profile name '%s': %w", extends[i], err)
+			}
 		}
 	}
 
@@ -95,6 +104,13 @@ func runProfileAdd(name, description, extendsStr, promoteTo, packageDuplication 
 	} else {
 		// Set default value
 		packageDuplication = "warn"
+	}
+
+	// Validate promoteTo if provided
+	if promoteTo != "" {
+		if err := config.ValidateProfileName(promoteTo); err != nil {
+			return fmt.Errorf("invalid promote_to profile name '%s': %w", promoteTo, err)
+		}
 	}
 
 	profile := config.ProfileConfig{
@@ -152,6 +168,11 @@ func runProfileAddFromTemplate(profileName, templateName, description string) er
 
 	// Validate and save each profile
 	for _, profile := range profiles {
+		// Validate profile name
+		if err := config.ValidateProfileName(profile.Name); err != nil {
+			return fmt.Errorf("invalid profile name '%s': %w", profile.Name, err)
+		}
+
 		// Set description if provided
 		if description != "" {
 			profile.Description = description
@@ -161,6 +182,20 @@ func runProfileAddFromTemplate(profileName, templateName, description string) er
 		if profile.Stage != "" {
 			if err := validateStage(profile.Stage); err != nil {
 				return fmt.Errorf("invalid stage in template: %w", err)
+			}
+		}
+
+		// Validate extends profile names
+		for _, ext := range profile.Extends {
+			if err := config.ValidateProfileName(ext); err != nil {
+				return fmt.Errorf("invalid extended profile name '%s': %w", ext, err)
+			}
+		}
+
+		// Validate promoteTo if provided
+		if profile.PromoteTo != "" {
+			if err := config.ValidateProfileName(profile.PromoteTo); err != nil {
+				return fmt.Errorf("invalid promote_to profile name '%s': %w", profile.PromoteTo, err)
 			}
 		}
 

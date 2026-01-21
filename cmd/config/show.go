@@ -32,6 +32,12 @@ func NewConfigShowCmd() *cobra.Command {
 				fmt.Println("  default_profile: (not set)")
 			}
 
+			if appConfig.DefaultStage != "" {
+				fmt.Printf("  default_stage: %s\n", appConfig.DefaultStage)
+			} else {
+				fmt.Println("  default_stage: (not set)")
+			}
+
 			return nil
 		},
 	}

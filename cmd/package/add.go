@@ -17,6 +17,7 @@ import (
 func NewPackageAddCmd() *cobra.Command {
 	var provider string
 	var profile string
+	var stage string
 	var version string
 	var description string
 	var packageID string
@@ -29,33 +30,32 @@ func NewPackageAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no package name provided, use fully interactive mode
 			if len(args) == 0 {
-				return runPackageAddInteractive("", provider, profile, version, description, packageID)
+				return runPackageAddInteractive("", provider, profile, stage, version, description, packageID)
 			}
 
 			packageName := args[0]
 
-			// Determine provider and profile from flags or defaults
+			// Load app config for defaults
+			appConfig, err := config.LoadAppConfig()
+			if err != nil {
+				return fmt.Errorf("error loading app config: %w", err)
+			}
+
+			// Determine provider from flag or default
 			finalProvider := provider
-			finalProfile := profile
+			if finalProvider == "" {
+				finalProvider = appConfig.DefaultProvider
+			}
 
-			// If flags are not set, try to use defaults
-			if finalProvider == "" || finalProfile == "" {
-				appConfig, err := config.LoadAppConfig()
-				if err != nil {
-					return fmt.Errorf("error loading app config: %w", err)
-				}
-
-				if finalProvider == "" {
-					finalProvider = appConfig.DefaultProvider
-				}
-				if finalProfile == "" {
-					finalProfile = appConfig.DefaultProfile
-				}
+			// Build final profile name from profile and stage flags/defaults
+			finalProfile, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
+			if err != nil {
+				return fmt.Errorf("error building profile name: %w", err)
 			}
 
 			// If still not set, return error
 			if finalProvider == "" || finalProfile == "" {
-				return fmt.Errorf("provider and profile must be specified via flags or default config. Use 'al config set --default-provider <provider> --default-profile <profile>' to set defaults")
+				return fmt.Errorf("provider and profile must be specified via flags or default config. Use 'al config set --default-provider <provider> --default-profile <profile> --default-stage <stage>' to set defaults")
 			}
 
 			// Verify that provider and profile exist
@@ -67,25 +67,91 @@ func NewPackageAddCmd() *cobra.Command {
 				return fmt.Errorf("provider '%s' does not exist", finalProvider)
 			}
 
-			profileConfig, err := config.GetProfile(finalProfile)
+			// Try to find profile, with fallback to profile_name without stage if stage is specified
+			profileConfig, err := findProfileWithFallback(finalProfile, stage)
 			if err != nil {
 				return fmt.Errorf("error loading profile: %w", err)
 			}
 			if profileConfig == nil {
 				return fmt.Errorf("profile '%s' does not exist", finalProfile)
 			}
+			
+			// Update finalProfile to the actual profile name found
+			finalProfile = profileConfig.Name
 
 			return runPackageAdd(packageName, finalProvider, finalProfile, version, description, packageID)
 		},
 	}
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Provider name (required)")
-	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (required)")
+	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (profile_name, or full profile_name.stage_name)")
+	cmd.Flags().StringVarP(&stage, "stage", "s", "", "Stage name (stage_name)")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Package version (optional)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Package description (optional)")
 	cmd.Flags().StringVarP(&packageID, "id", "i", "", "Package ID (required for mas, optional for brew)")
 
 	return cmd
+}
+
+// buildProfileName builds the final profile name from profile and stage flags/defaults
+// If profile contains ".", it's treated as a full profile name (profile_name.stage_name)
+// Otherwise, it's treated as profile_name and combined with stage
+func buildProfileName(profileFlag, stageFlag, defaultProfile, defaultStage string) (string, error) {
+	// If profile flag contains ".", treat it as a full profile name
+	if profileFlag != "" && strings.Contains(profileFlag, ".") {
+		// Validate the full profile name
+		if err := config.ValidateProfileName(profileFlag); err != nil {
+			return "", err
+		}
+		return profileFlag, nil
+	}
+
+	// Determine profile_name
+	profileName := profileFlag
+	if profileName == "" {
+		profileName = defaultProfile
+	}
+
+	// Determine stage_name
+	stageName := stageFlag
+	if stageName == "" {
+		stageName = defaultStage
+	}
+
+	// Build full profile name
+	return config.BuildProfileName(profileName, stageName)
+}
+
+// findProfileWithFallback finds a profile by name, with fallback to profile_name without stage if stage is specified
+// If stage is specified and the full profile_name.stage_name is not found, it tries profile_name (without stage)
+func findProfileWithFallback(fullProfileName, stageFlag string) (*config.ProfileConfig, error) {
+	// First, try to find the profile with the full name
+	profileConfig, err := config.GetProfile(fullProfileName)
+	if err != nil {
+		return nil, err
+	}
+	if profileConfig != nil {
+		return profileConfig, nil
+	}
+
+	// If stage is specified and profile not found, try to find profile_name without stage
+	if stageFlag != "" {
+		profileName, _, err := config.ParseProfileName(fullProfileName)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Try to find profile with just profile_name (no stage)
+		profileConfig, err = config.GetProfile(profileName)
+		if err != nil {
+			return nil, err
+		}
+		if profileConfig != nil {
+			return profileConfig, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // RunPackageAdd runs the package add logic (exported for use by other commands)
@@ -103,14 +169,22 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 		return fmt.Errorf("provider '%s' does not exist", providerName)
 	}
 
-	// Validate profile exists
-	profileConfig, err := config.GetProfile(profile)
+	// Validate profile exists, with fallback to profile_name without stage if stage is specified
+	// Check if profile name contains "." (indicating stage is specified)
+	stageFlag := ""
+	if strings.Contains(profile, ".") {
+		stageFlag = "specified" // Any non-empty string to trigger fallback
+	}
+	profileConfig, err := findProfileWithFallback(profile, stageFlag)
 	if err != nil {
 		return fmt.Errorf("error loading profile: %w", err)
 	}
 	if profileConfig == nil {
 		return fmt.Errorf("profile '%s' does not exist", profile)
 	}
+	
+	// Update profile to the actual profile name found
+	profile = profileConfig.Name
 
 	// Determine package ID and name based on provider
 	var finalID string
@@ -230,7 +304,7 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 	return nil
 }
 
-func runPackageAddInteractive(packageName, provider, profile, version, description, packageID string) error {
+func runPackageAddInteractive(packageName, provider, profile, stage, version, description, packageID string) error {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	// Get package name (if not provided)
@@ -261,6 +335,12 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 		fmt.Printf("Provider: %s\n", provider)
 	}
 
+	// Load app config for defaults
+	appConfig, err := config.LoadAppConfig()
+	if err != nil {
+		return fmt.Errorf("error loading app config: %w", err)
+	}
+
 	// Get profile
 	if profile == "" {
 		selectedProfile, err := selectProfileUI()
@@ -274,6 +354,24 @@ func runPackageAddInteractive(packageName, provider, profile, version, descripti
 	} else {
 		fmt.Printf("Profile: %s\n", profile)
 	}
+
+	// Build final profile name from profile and stage
+	finalProfile, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
+	if err != nil {
+		return fmt.Errorf("error building profile name: %w", err)
+	}
+	
+	// Verify profile exists with fallback
+	profileConfig, err := findProfileWithFallback(finalProfile, stage)
+	if err != nil {
+		return fmt.Errorf("error loading profile: %w", err)
+	}
+	if profileConfig == nil {
+		return fmt.Errorf("profile '%s' does not exist", finalProfile)
+	}
+	
+	// Update profile to the actual profile name found
+	profile = profileConfig.Name
 
 	// Get version
 	if version == "" {

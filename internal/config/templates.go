@@ -228,19 +228,54 @@ func ApplyTemplate(template *ProfileTemplate, profileName string) ([]ProfileConf
 		return nil, fmt.Errorf("profile name is required")
 	}
 
+	// Load app config to get default_profile
+	appConfig, err := LoadAppConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error loading app config: %w", err)
+	}
+
+	defaultProfile := appConfig.DefaultProfile
+
 	profiles := make([]ProfileConfig, 0, len(template.Profiles))
 	for _, profile := range template.Profiles {
 		// Replace <profile_name> with actual profile name
 		newProfile := profile
 		newProfile.Name = strings.ReplaceAll(profile.Name, "<profile_name>", profileName)
 
-		// Replace <profile_name> in Extends
-		if len(profile.Extends) > 0 {
-			newExtends := make([]string, len(profile.Extends))
-			for i, ext := range profile.Extends {
-				newExtends[i] = strings.ReplaceAll(ext, "<profile_name>", profileName)
+		// Build extends array
+		newExtends := make([]string, 0)
+		
+		// Add <default_profile> at the beginning if default_profile is set and not the same as the profile being created
+		if defaultProfile != "" {
+			// Parse the profile name to get profile_name part
+			profileNamePart, _, err := ParseProfileName(newProfile.Name)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing profile name '%s': %w", newProfile.Name, err)
 			}
-			newProfile.Extends = newExtends
+			
+			// Only add if default_profile is different from the profile_name part
+			if defaultProfile != profileNamePart {
+				newExtends = append(newExtends, fmt.Sprintf("<default_profile>"))
+			}
+		}
+
+		// Add existing extends
+		if len(profile.Extends) > 0 {
+			for _, ext := range profile.Extends {
+				replacedExt := strings.ReplaceAll(ext, "<profile_name>", profileName)
+				newExtends = append(newExtends, replacedExt)
+			}
+		}
+
+		newProfile.Extends = newExtends
+
+		// Replace <profile_name> and <default_profile> in Extends
+		for i, ext := range newProfile.Extends {
+			ext = strings.ReplaceAll(ext, "<profile_name>", profileName)
+			if defaultProfile != "" {
+				ext = strings.ReplaceAll(ext, "<default_profile>", defaultProfile)
+			}
+			newProfile.Extends[i] = ext
 		}
 
 		// Replace <profile_name> in PromoteTo

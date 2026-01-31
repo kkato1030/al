@@ -6,47 +6,30 @@ import (
 	"os/exec"
 
 	"github.com/kkato1030/al/internal/config"
-	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 // NewEditCmd creates the link edit command
 func NewEditCmd() *cobra.Command {
-	var path string
-	var pkgName string
 	cmd := &cobra.Command{
-		Use:   "edit --path <path> [--package <pkg>]",
+		Use:   "edit <name>",
 		Short: "Edit link.d content in EDITOR",
 		Long:  "Open the link.d content (file or dir root) in EDITOR (default: vim).",
-		Args:  cobra.NoArgs,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if path == "" {
-				return fmt.Errorf("--path is required")
-			}
-			return runEdit(path, pkgName)
+			return runEdit(args[0])
 		},
 	}
-	cmd.Flags().StringVar(&path, "path", "", "Path (symlink location) to edit")
-	cmd.Flags().StringVar(&pkgName, "package", "", "Filter by package name (optional)")
 	return cmd
 }
 
-func runEdit(userPath, pkgName string) error {
-	var packageID, packageProvider string
-	if pkgName != "" {
-		pkg, err := ui.ResolvePackageByName(pkgName)
-		if err != nil {
-			return fmt.Errorf("resolving package: %w", err)
-		}
-		packageID = pkg.ID
-		packageProvider = pkg.Provider
-	}
-	entry, entryDir, err := config.FindLinkByUserPath(userPath, packageID, packageProvider)
+func runEdit(name string) error {
+	entry, entryDir, err := config.GetLinkByName(name)
 	if err != nil {
 		return err
 	}
 	if entry == nil {
-		return fmt.Errorf("link not found for path %s", userPath)
+		return fmt.Errorf("link not found: %s", name)
 	}
 	contentPath := config.GetLinkContentPath(entryDir)
 	editor := os.Getenv("EDITOR")

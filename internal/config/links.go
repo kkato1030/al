@@ -1,13 +1,12 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -30,9 +29,9 @@ type LinkManifest struct {
 	PackageProvider  string   `json:"package_provider,omitempty"` // optional package association
 }
 
-// LinkEntry represents a link.d entry (manifest + id).
+// LinkEntry represents a link.d entry (manifest + name).
 type LinkEntry struct {
-	ID       string        // directory name under link.d
+	Name     string        // directory name under link.d (user-given name)
 	Manifest *LinkManifest
 }
 
@@ -45,13 +44,22 @@ func GetLinkDir() (string, error) {
 	return filepath.Join(configDir, "link.d"), nil
 }
 
-// generateLinkID returns a unique short id for a new link.
-func generateLinkID() (string, error) {
-	b := make([]byte, 4)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+// safeLinkName matches allowed characters for link.d directory name: alphanumeric, underscore, hyphen, dot.
+var safeLinkName = regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+
+// sanitizeLinkName validates and returns the name for use as link.d/<name>. Rejects empty and unsafe strings.
+func sanitizeLinkName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("link name cannot be empty")
 	}
-	return hex.EncodeToString(b), nil
+	if strings.Contains(name, "/") || name == "." || name == ".." || strings.HasPrefix(name, "..") {
+		return "", fmt.Errorf("invalid link name: %s", name)
+	}
+	if !safeLinkName.MatchString(name) {
+		return "", fmt.Errorf("link name may only contain letters, numbers, underscore, hyphen, and dot: %s", name)
+	}
+	return name, nil
 }
 
 // resolveUserPath returns the absolute path for the user-facing path.
@@ -96,9 +104,13 @@ func DetectLinkType(userPath string) (LinkType, error) {
 	return LinkTypeFile, nil
 }
 
-// AddLink adds a new link: copies content to link.d/<id>/content, creates symlink at userPath.
-// userPath is the symlink location (can be ~/...). packageID and packageProvider are optional.
-func AddLink(userPath string, linkType LinkType, packageID, packageProvider string) (*LinkEntry, error) {
+// AddLink adds a new link: copies content to link.d/<name>/content, creates symlink at userPath.
+// name is the link name (used as directory under link.d). userPath is the symlink location (can be ~/...). packageID and packageProvider are optional.
+func AddLink(name, userPath string, linkType LinkType, packageID, packageProvider string) (*LinkEntry, error) {
+	safeName, err := sanitizeLinkName(name)
+	if err != nil {
+		return nil, err
+	}
 	absUserPath, err := resolveUserPath(userPath)
 	if err != nil {
 		return nil, err
@@ -110,22 +122,10 @@ func AddLink(userPath string, linkType LinkType, packageID, packageProvider stri
 	if err != nil {
 		return nil, err
 	}
-	id, err := generateLinkID()
-	if err != nil {
-		return nil, err
+	entryDir := filepath.Join(linkDir, safeName)
+	if _, err := os.Stat(entryDir); err == nil {
+		return nil, fmt.Errorf("link name already exists: %s", safeName)
 	}
-	// Ensure unique id
-	for {
-		entryDir := filepath.Join(linkDir, id)
-		if _, err := os.Stat(entryDir); os.IsNotExist(err) {
-			break
-		}
-		id, err = generateLinkID()
-		if err != nil {
-			return nil, err
-		}
-	}
-	entryDir := filepath.Join(linkDir, id)
 	contentPath := filepath.Join(entryDir, linkContentName)
 	if err := os.MkdirAll(entryDir, 0755); err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func AddLink(userPath string, linkType LinkType, packageID, packageProvider stri
 		PackageProvider: packageProvider,
 	}
 	if linkType == LinkTypeFile {
-		// Copy file to link.d/<id>/content
+		// Copy file to link.d/<name>/content
 		if _, err := os.Stat(absUserPath); err == nil {
 			src, err := os.Open(absUserPath)
 			if err != nil {
@@ -162,7 +162,7 @@ func AddLink(userPath string, linkType LinkType, packageID, packageProvider stri
 			}
 		}
 	} else {
-		// Dir: content is link.d/<id>/content/ (a directory)
+		// Dir: content is link.d/<name>/content/ (a directory)
 		if _, err := os.Stat(absUserPath); err == nil {
 			if err := copyDir(absUserPath, contentPath); err != nil {
 				return nil, err
@@ -194,7 +194,7 @@ func AddLink(userPath string, linkType LinkType, packageID, packageProvider stri
 		os.RemoveAll(entryDir)
 		return nil, fmt.Errorf("creating symlink: %w", err)
 	}
-	return &LinkEntry{ID: id, Manifest: manifest}, nil
+	return &LinkEntry{Name: safeName, Manifest: manifest}, nil
 }
 
 func copyDir(src, dst string) error {
@@ -285,24 +285,14 @@ func ListLinks(packageID, packageProvider string) ([]LinkEntry, error) {
 				continue
 			}
 		}
-		result = append(result, LinkEntry{ID: e.Name(), Manifest: m})
+		result = append(result, LinkEntry{Name: e.Name(), Manifest: m})
 	}
 	return result, nil
 }
 
-// GetLinkContentPath returns the path to the link content (file or dir) inside link.d/<id>/.
-func GetLinkContentPath(entryDir string) string {
-	return filepath.Join(entryDir, linkContentName)
-}
-
-// FindLinkByUserPath finds a link whose UserPath matches the given path (after resolving to absolute).
-// If packageID/packageProvider are set, only consider that package's links.
-func FindLinkByUserPath(userPath string, packageID, packageProvider string) (*LinkEntry, string, error) {
-	abs, err := resolveUserPath(userPath)
-	if err != nil {
-		return nil, "", err
-	}
-	links, err := ListLinks(packageID, packageProvider)
+// GetLinkByName returns the link entry and its directory by name. Returns nil if not found.
+func GetLinkByName(name string) (*LinkEntry, string, error) {
+	safeName, err := sanitizeLinkName(name)
 	if err != nil {
 		return nil, "", err
 	}
@@ -310,16 +300,23 @@ func FindLinkByUserPath(userPath string, packageID, packageProvider string) (*Li
 	if err != nil {
 		return nil, "", err
 	}
-	for _, link := range links {
-		if link.Manifest.UserPath == abs {
-			entryDir := filepath.Join(linkDir, link.ID)
-			return &link, entryDir, nil
-		}
+	entryDir := filepath.Join(linkDir, safeName)
+	if _, err := os.Stat(entryDir); os.IsNotExist(err) {
+		return nil, "", nil
 	}
-	return nil, "", nil
+	m, err := loadLinkManifest(entryDir)
+	if err != nil {
+		return nil, "", err
+	}
+	return &LinkEntry{Name: safeName, Manifest: m}, entryDir, nil
 }
 
-// RemoveLink removes the symlink and optionally copies content back (copy-back). If purge is true, deletes link.d/<id> without copy-back.
+// GetLinkContentPath returns the path to the link content (file or dir) inside link.d/<name>/.
+func GetLinkContentPath(entryDir string) string {
+	return filepath.Join(entryDir, linkContentName)
+}
+
+// RemoveLink removes the symlink and optionally copies content back (copy-back). If purge is true, deletes link.d/<name> without copy-back.
 func RemoveLink(entry *LinkEntry, entryDir string, purge bool) error {
 	contentPath := GetLinkContentPath(entryDir)
 	userPath := entry.Manifest.UserPath

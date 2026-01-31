@@ -47,7 +47,7 @@ func runList(pkgName string) error {
 		if l.Manifest.PackageID != "" {
 			pkgInfo = fmt.Sprintf(" [package: %s/%s]", l.Manifest.PackageID, l.Manifest.PackageProvider)
 		}
-		fmt.Printf("%s -> %s (%s)%s\n", l.Manifest.UserPath, l.ID, l.Manifest.Type, pkgInfo)
+		fmt.Printf("%s -> %s (%s)%s\n", l.Name, l.Manifest.UserPath, l.Manifest.Type, pkgInfo)
 	}
 	return nil
 }

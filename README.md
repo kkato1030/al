@@ -65,6 +65,16 @@ al version
 - **work** profile: 仕事用の環境に必要なパッケージ・設定
 - **private** profile: プライベート用の環境に必要なパッケージ・設定
 
+## サブコマンド一覧と役割
+
+| コマンド | 役割 |
+|----------|------|
+| **al config** | アプリのデフォルト設定（default_provider / default_profile / default_stage / alias） |
+| **al link** | link.d の管理。設定ファイル・ディレクトリを `~/.al/link.d/<name>/` に置き、ユーザ向けパスを symlink にする。add / list / remove / edit。 |
+| **al activate** | shell.d の有効スニペットをトポロジカルソートして source するシェルコードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を 1 行書く（al は .zshrc を編集しない）。 |
+| **al package shell** | パッケージに紐づく shell.d スニペットの管理。show / set / unset / edit / enable / disable。 |
+| **al package link** | パッケージに紐づく link.d の管理（link 名 = パッケージ名、1 パッケージ 1 link 想定）。add / remove / edit。 |
+
 ## 基本的な使い方
 
 ### パッケージ・設定の追加

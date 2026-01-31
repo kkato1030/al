@@ -1,6 +1,7 @@
 package packagecmd
 
 import (
+	"github.com/kkato1030/al/cmd/package/shell"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,7 @@ func NewPackageCmd() *cobra.Command {
 	packageCmd.AddCommand(NewPackageImportCmd())
 	packageCmd.AddCommand(NewPackageListCmd())
 	packageCmd.AddCommand(NewPackageShowCmd())
+	packageCmd.AddCommand(shell.NewCmd())
 	packageCmd.AddCommand(NewPackageRemoveCmd())
 	packageCmd.AddCommand(NewPackageMoveCmd())
 	packageCmd.AddCommand(NewPackageSearchCmd())

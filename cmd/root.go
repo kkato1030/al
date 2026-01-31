@@ -48,6 +48,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(NewVersionCmd())
 	rootCmd.AddCommand(NewUpdateCmd())
 	rootCmd.AddCommand(NewUpgradeCmd())
+	rootCmd.AddCommand(NewActivateCmd())
 	rootCmd.AddCommand(configcmd.NewConfigCmd())
 	rootCmd.AddCommand(provider.NewProviderCmd())
 	rootCmd.AddCommand(profile.NewProfileCmd())

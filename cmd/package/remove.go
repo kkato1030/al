@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,31 +18,35 @@ import (
 func NewPackageRemoveCmd() *cobra.Command {
 	var provider string
 	var profile string
+	var keepShell bool
+	var keepLink bool
 
 	cmd := &cobra.Command{
 		Use:   "remove <package-name>",
 		Short: "Remove a package",
-		Long:  "Remove a package from a profile. If required flags are not provided, interactive mode will be used.",
+		Long:  "Remove a package from a profile. Use --keep-shell to leave shell.d content; use --keep-link to leave link.d entry (clear package association only). If required flags are not provided, interactive mode will be used.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			packageName := args[0]
 
 			// If required flags are not set, use interactive mode
 			if provider == "" || profile == "" {
-				return runPackageRemoveInteractive(packageName, provider, profile)
+				return runPackageRemoveInteractive(packageName, provider, profile, keepShell, keepLink)
 			}
 
-			return runPackageRemove(packageName, provider, profile)
+			return runPackageRemove(packageName, provider, profile, keepShell, keepLink)
 		},
 	}
 
 	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Provider name (required)")
 	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (required)")
+	cmd.Flags().BoolVar(&keepShell, "keep-shell", false, "Keep shell.d content when removing package")
+	cmd.Flags().BoolVar(&keepLink, "keep-link", false, "Keep link.d entry (clear package association only) when removing package")
 
 	return cmd
 }
 
-func runPackageRemove(packageName, providerName, profile string) error {
+func runPackageRemove(packageName, providerName, profile string, keepShell, keepLink bool) error {
 	// Check if package exists
 	packagesConfig, err := config.LoadPackagesConfig()
 	if err != nil {
@@ -97,11 +102,41 @@ func runPackageRemove(packageName, providerName, profile string) error {
 		return fmt.Errorf("error removing package: %w", err)
 	}
 
+	// shell.d: remove directory unless --keep-shell
+	if !keepShell {
+		if err := config.RemoveShellPackageDir(foundPkg.ID, providerName); err != nil {
+			return fmt.Errorf("error removing shell.d: %w", err)
+		}
+	}
+
+	// link.d: for each link associated with this package, either clear association (--keep-link) or remove link
+	links, err := config.ListLinks(foundPkg.ID, providerName)
+	if err != nil {
+		return fmt.Errorf("error listing links: %w", err)
+	}
+	linkDir, err := config.GetLinkDir()
+	if err != nil {
+		return fmt.Errorf("error getting link dir: %w", err)
+	}
+	for i := range links {
+		entry := &links[i]
+		entryDir := filepath.Join(linkDir, entry.Name)
+		if keepLink {
+			if err := config.ClearLinkPackageAssociation(entryDir); err != nil {
+				return fmt.Errorf("error clearing link association for %s: %w", entry.Name, err)
+			}
+		} else {
+			if err := config.RemoveLink(entry, entryDir, false); err != nil {
+				return fmt.Errorf("error removing link %s: %w", entry.Name, err)
+			}
+		}
+	}
+
 	fmt.Printf("Package '%s' (ID: %s) has been successfully removed from profile '%s' with provider '%s'\n", packageName, foundPkg.ID, profile, providerName)
 	return nil
 }
 
-func runPackageRemoveInteractive(packageName, provider, profile string) error {
+func runPackageRemoveInteractive(packageName, provider, profile string, keepShell, keepLink bool) error {
 	// Get package name
 	fmt.Printf("Package name: %s\n", packageName)
 
@@ -135,7 +170,7 @@ func runPackageRemoveInteractive(packageName, provider, profile string) error {
 	if len(matchingPackages) == 1 {
 		pkg := matchingPackages[0]
 		fmt.Printf("Found package: %s (provider: %s, profile: %s)\n", pkg.Name, pkg.Provider, pkg.Profile)
-		return runPackageRemove(packageName, pkg.Provider, pkg.Profile)
+		return runPackageRemove(packageName, pkg.Provider, pkg.Profile, keepShell, keepLink)
 	}
 
 	// Multiple matches, let user select with UI
@@ -150,5 +185,5 @@ func runPackageRemoveInteractive(packageName, provider, profile string) error {
 		return fmt.Errorf("package selection is required")
 	}
 
-	return runPackageRemove(packageName, selectedPkg.Provider, selectedPkg.Profile)
+	return runPackageRemove(packageName, selectedPkg.Provider, selectedPkg.Profile, keepShell, keepLink)
 }

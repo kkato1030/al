@@ -353,3 +353,14 @@ func RemoveLink(entry *LinkEntry, entryDir string, purge bool) error {
 func LinksByPackage(packageID, packageProvider string) ([]LinkEntry, error) {
 	return ListLinks(packageID, packageProvider)
 }
+
+// ClearLinkPackageAssociation clears the package association from a link's manifest (symlink and content are kept).
+func ClearLinkPackageAssociation(entryDir string) error {
+	m, err := loadLinkManifest(entryDir)
+	if err != nil {
+		return err
+	}
+	m.PackageID = ""
+	m.PackageProvider = ""
+	return saveLinkManifest(entryDir, m)
+}

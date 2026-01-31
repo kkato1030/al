@@ -1,7 +1,10 @@
 package packagecmd
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
@@ -55,6 +58,20 @@ func runPackageRemove(packageName, providerName, profile string) error {
 
 	if foundPkg == nil {
 		return fmt.Errorf("package '%s' with provider '%s' in profile '%s' not found", packageName, providerName, profile)
+	}
+
+	// For manual provider, confirm that user has already uninstalled the package
+	if providerName == "manual" {
+		fmt.Printf("Have you already uninstalled '%s'? [y/N]: ", packageName)
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("error reading response: %w", err)
+		}
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "y" && response != "yes" {
+			return fmt.Errorf("removal cancelled")
+		}
 	}
 
 	// Get provider instance

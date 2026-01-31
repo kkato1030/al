@@ -24,7 +24,7 @@ func NewPackageRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <package-name>",
 		Short: "Remove a package",
-		Long:  "Remove a package from a profile. Use --keep-shell to leave shell.d content; use --keep-link to leave link.d entry (clear package association only). If required flags are not provided, interactive mode will be used.",
+		Long:  "Remove a package from a profile. If the same package is still in another profile, only the config entry for this profile is removed (app is not uninstalled). When it is the last profile, the app is uninstalled and shell.d/link.d are cleaned up. Use --keep-shell to leave shell.d content; use --keep-link to leave link.d entry (clear package association only). If required flags are not provided, interactive mode will be used.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			packageName := args[0]
@@ -65,6 +65,22 @@ func runPackageRemove(packageName, providerName, profile string, keepShell, keep
 		return fmt.Errorf("package '%s' with provider '%s' in profile '%s' not found", packageName, providerName, profile)
 	}
 
+	// If the same package (same ID+provider) exists in another profile, only remove from this profile (do not uninstall).
+	stillInOtherProfile, err := config.SamePackageInOtherProfile(foundPkg.ID, providerName, profile)
+	if err != nil {
+		return fmt.Errorf("error checking other profiles: %w", err)
+	}
+
+	if stillInOtherProfile {
+		// Detach from this profile only: config removal, no uninstall/shell.d/link.d
+		if err := config.RemovePackage(foundPkg.ID, providerName, profile); err != nil {
+			return fmt.Errorf("error removing package: %w", err)
+		}
+		fmt.Printf("Package '%s' (ID: %s) has been removed from profile '%s' (still managed in other profile(s)); app was not uninstalled.\n", packageName, foundPkg.ID, profile)
+		return nil
+	}
+
+	// Last profile for this package: uninstall and clean up
 	// For manual provider, confirm that user has already uninstalled the package
 	if providerName == "manual" {
 		fmt.Printf("Have you already uninstalled '%s'? [y/N]: ", packageName)

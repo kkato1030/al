@@ -129,6 +129,21 @@ func AddOrUpdatePackage(pkg PackageConfig) error {
 	return SavePackagesConfig(config)
 }
 
+// SamePackageInOtherProfile returns true if the same package (same id and provider) exists in at least one other profile.
+// Used to decide whether to uninstall when removing from a profile (only uninstall when this is the last profile).
+func SamePackageInOtherProfile(id, provider, profile string) (bool, error) {
+	config, err := LoadPackagesConfig()
+	if err != nil {
+		return false, err
+	}
+	for _, pkg := range config.Packages {
+		if pkg.ID == id && pkg.Provider == provider && pkg.Profile != profile {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // RemovePackage removes a package from the configuration
 // Package is identified by id, provider, and profile combination
 func RemovePackage(id, provider, profile string) error {

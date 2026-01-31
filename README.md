@@ -100,6 +100,57 @@ Profile を指定する場合は、各種コマンドで `-p (--profile)` を指
 al add <package> -p work
 ```
 
+### Brewfile からの移行（import）
+
+すでに Homebrew の `brew bundle` や `mas` でアプリを管理している場合は、Brewfile を指定するだけで al の管理下に取り込めます。**登録のみ**がデフォルトで、既にインストール済みの環境を al に乗り換える用途を想定しています。
+
+**事前準備**
+
+- 登録先の profile を用意する（`al profile add <profile>`）
+- Brewfile に含まれる種類に応じて、brew / mas の provider を追加する（`al provider add brew`, `al provider add mas`）
+
+**基本的な使い方**
+
+```bash
+# Brewfile を指定して import（パス省略時は ./Brewfile または ~/.Brewfile を参照）
+al import [Brewfileのパス] --profile <profile>
+# または
+al package import [Brewfileのパス] --profile <profile>
+```
+
+**主なオプション**
+
+| オプション | 説明 |
+| ---------- | ----- |
+| `-f`, `--profile` | 登録先の profile（必須） |
+| `-s`, `--stage` | stage 名（省略時はデフォルト設定を使用） |
+| `--dry-run` | 実際には書き込まず、パース結果と登録予定の一覧だけ表示する |
+| `--install` | 未インストールのパッケージを brew/mas でインストールする（デフォルトは登録のみ） |
+| `--overwrite` | 既に同じ id・provider・profile で登録済みのものを上書きする |
+| `--verbose` | 対応外の行（vscode / go / cargo など）をスキップした理由を表示する |
+
+**例**
+
+```bash
+# 登録内容を確認してから import
+al import Brewfile --profile default --dry-run
+
+# import 実行（登録のみ）
+al import Brewfile --profile default
+
+# 未インストール分もインストールしながら import
+al import Brewfile --profile default --install
+```
+
+**Brewfile で対応している行**
+
+- `tap "user/repo"` → brew provider の tap
+- `brew "formula"` → brew provider の formula
+- `cask "name"` → brew provider の cask
+- `mas "App Name", id: 1234567890` → mas provider
+
+vscode / go / cargo / flatpak などはスキップされ、`--verbose` で内容を確認できます。
+
 ## 使用例
 
 ### 例1: 新しいパッケージを試す

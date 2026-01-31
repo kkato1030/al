@@ -13,6 +13,7 @@ func NewPackageCmd() *cobra.Command {
 	}
 
 	packageCmd.AddCommand(NewPackageAddCmd())
+	packageCmd.AddCommand(NewPackageImportCmd())
 	packageCmd.AddCommand(NewPackageListCmd())
 	packageCmd.AddCommand(NewPackageShowCmd())
 	packageCmd.AddCommand(NewPackageRemoveCmd())

@@ -1,0 +1,8 @@
+# Sample Brewfile for testing
+tap "homebrew/cask"
+brew "ruby"
+brew "postgresql@16"
+cask "firefox"
+mas "Slack", id: 803453959
+# Unsupported (should be skipped)
+vscode "editorconfig.editorconfig"

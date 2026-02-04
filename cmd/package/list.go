@@ -98,6 +98,7 @@ func formatPackageGrid(names []string, indent string, contentWidth, columnWidth 
 }
 
 // runPackageListWithPager runs the list; when stdout is a TTY and noPager is false, pipes output through $PAGER (default: less -R).
+// After the pager exits, the list is printed again to stdout so it remains visible in the terminal.
 func runPackageListWithPager(profileFilter, providerFilter string, noPager bool) error {
 	stdout := os.Stdout
 	usePager := !noPager && term.IsTerminal(int(stdout.Fd()))
@@ -108,12 +109,20 @@ func runPackageListWithPager(profileFilter, providerFilter string, noPager bool)
 	if err := runPackageList(&buf, profileFilter, providerFilter); err != nil {
 		return err
 	}
+	// Keep a copy; the pager will consume buf when reading from stdin.
+	saved := make([]byte, buf.Len())
+	copy(saved, buf.Bytes())
 	pagerCmd, pagerArgs := pagerCommand()
 	cmd := exec.Command(pagerCmd, pagerArgs...)
 	cmd.Stdin = &buf
 	cmd.Stdout = stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	// Re-print the list so it stays visible in the terminal after the pager is closed.
+	_, err := stdout.Write(saved)
+	return err
 }
 
 func pagerCommand() (name string, args []string) {

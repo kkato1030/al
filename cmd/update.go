@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -108,16 +109,13 @@ func getLatestRelease() (*Release, error) {
 }
 
 func isNewerVersion(latest, current string) bool {
-	// Simple version comparison
-	// Remove 'v' prefix if present
+	// Semantic version comparison (e.g. 0.10.0 > 0.9.1)
 	latest = strings.TrimPrefix(latest, "v")
 	current = strings.TrimPrefix(current, "v")
 
-	// Split version strings
 	latestParts := strings.Split(latest, ".")
 	currentParts := strings.Split(current, ".")
 
-	// Compare each part
 	maxLen := len(latestParts)
 	if len(currentParts) > maxLen {
 		maxLen = len(currentParts)
@@ -132,7 +130,21 @@ func isNewerVersion(latest, current string) bool {
 			currentPart = currentParts[i]
 		}
 
-		// Compare as strings (works for most cases)
+		latestNum, latestErr := strconv.Atoi(latestPart)
+		currentNum, currentErr := strconv.Atoi(currentPart)
+
+		// Compare as numbers so that 10 > 9
+		if latestErr == nil && currentErr == nil {
+			if latestNum > currentNum {
+				return true
+			}
+			if latestNum < currentNum {
+				return false
+			}
+			continue
+		}
+
+		// Fallback to string comparison for non-numeric parts (e.g. pre-release)
 		if latestPart > currentPart {
 			return true
 		}

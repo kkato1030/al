@@ -68,7 +68,7 @@ func runSync(dryRun, all bool, profileName string, args []string) error {
 				return fmt.Errorf("owner/repo is required to clone (e.g. kkato1030/dotfiles)")
 			}
 		}
-		owner, repo, err := parseOwnerRepo(ownerRepo)
+		owner, repo, err := source.ParseOwnerRepo(ownerRepo)
 		if err != nil {
 			return err
 		}
@@ -197,20 +197,6 @@ func promptOwnerRepo() (string, error) {
 		return "", fmt.Errorf("prompt failed: %w", err)
 	}
 	return strings.TrimSpace(model.GetValue()), nil
-}
-
-func parseOwnerRepo(s string) (owner, repo string, err error) {
-	s = strings.TrimSpace(s)
-	parts := strings.SplitN(s, "/", 2)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("expected owner/repo (e.g. kkato1030/dotfiles), got: %s", s)
-	}
-	owner = strings.TrimSpace(parts[0])
-	repo = strings.TrimSpace(parts[1])
-	if owner == "" || repo == "" {
-		return "", "", fmt.Errorf("owner and repo must be non-empty, got: %s", s)
-	}
-	return owner, repo, nil
 }
 
 func getProvider(name string) provider.Provider {

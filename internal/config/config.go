@@ -47,6 +47,8 @@ type AppConfig struct {
 	DefaultProvider string `json:"default_provider,omitempty"`
 	DefaultProfile  string `json:"default_profile,omitempty"`
 	DefaultStage    string `json:"default_stage,omitempty"`
+	// BackupRepo is the GitHub owner/repo for "al backup" (e.g. "kkato1030/dotal"). Empty means use default owner/dotal.
+	BackupRepo string `json:"backup_repo,omitempty"`
 }
 
 // GetConfigPath returns the path to the config.json file
@@ -134,6 +136,17 @@ func SetDefaultStage(stage string) error {
 	}
 
 	config.DefaultStage = stage
+	return SaveAppConfig(config)
+}
+
+// SetBackupRepo sets the backup repository (owner/repo) for "al backup"
+func SetBackupRepo(repo string) error {
+	config, err := LoadAppConfig()
+	if err != nil {
+		return err
+	}
+
+	config.BackupRepo = repo
 	return SaveAppConfig(config)
 }
 

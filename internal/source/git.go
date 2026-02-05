@@ -24,3 +24,19 @@ func Clone(dest, owner, repo string) error {
 	}
 	return nil
 }
+
+// ParseOwnerRepo parses "owner/repo" string into owner and repo.
+// Returns an error if the format is invalid (e.g. "kkato1030/dotal").
+func ParseOwnerRepo(s string) (owner, repo string, err error) {
+	s = strings.TrimSpace(s)
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("expected owner/repo (e.g. kkato1030/dotfiles), got: %s", s)
+	}
+	owner = strings.TrimSpace(parts[0])
+	repo = strings.TrimSpace(parts[1])
+	if owner == "" || repo == "" {
+		return "", "", fmt.Errorf("owner and repo must be non-empty, got: %s", s)
+	}
+	return owner, repo, nil
+}

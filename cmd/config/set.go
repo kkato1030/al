@@ -12,14 +12,15 @@ func NewConfigSetCmd() *cobra.Command {
 	var defaultProvider string
 	var defaultProfile string
 	var defaultStage string
+	var backupRepo string
 
 	cmd := &cobra.Command{
 		Use:   "set",
 		Short: "Set configuration values",
-		Long:  "Set default_provider, default_profile, and/or default_stage",
+		Long:  "Set default_provider, default_profile, default_stage, and/or backup_repo",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if defaultProvider == "" && defaultProfile == "" && defaultStage == "" {
-				return fmt.Errorf("at least one of --default-provider, --default-profile, or --default-stage must be specified")
+			if defaultProvider == "" && defaultProfile == "" && defaultStage == "" && backupRepo == "" {
+				return fmt.Errorf("at least one of --default-provider, --default-profile, --default-stage, or --backup-repo must be specified")
 			}
 
 			if defaultProvider != "" {
@@ -43,6 +44,13 @@ func NewConfigSetCmd() *cobra.Command {
 				fmt.Printf("Default stage set to: %s\n", defaultStage)
 			}
 
+			if backupRepo != "" {
+				if err := config.SetBackupRepo(backupRepo); err != nil {
+					return fmt.Errorf("error setting backup repo: %w", err)
+				}
+				fmt.Printf("Backup repo set to: %s\n", backupRepo)
+			}
+
 			return nil
 		},
 	}
@@ -52,6 +60,7 @@ func NewConfigSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&defaultProfile, "default-profile", "", "Set the default profile")
 	cmd.Flags().StringVar(&defaultProfile, "default-prf", "", "Short form of --default-profile")
 	cmd.Flags().StringVar(&defaultStage, "default-stage", "", "Set the default stage")
+	cmd.Flags().StringVar(&backupRepo, "backup-repo", "", "Set the backup repository for 'al backup' (owner/repo, e.g. kkato1030/dotal)")
 
 	return cmd
 }

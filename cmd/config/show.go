@@ -38,6 +38,12 @@ func NewConfigShowCmd() *cobra.Command {
 				fmt.Println("  default_stage: (not set)")
 			}
 
+			if appConfig.BackupRepo != "" {
+				fmt.Printf("  backup_repo: %s\n", appConfig.BackupRepo)
+			} else {
+				fmt.Println("  backup_repo: (not set, default: owner/dotal)")
+			}
+
 			return nil
 		},
 	}

@@ -28,6 +28,7 @@ func NewAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&path, "path", "", "Path to add (symlink location)")
 	cmd.MarkFlagRequired("path")
 	cmd.Flags().StringVar(&pkgName, "package", "", "Package name to associate (optional)")
+	cmd.Flags().StringVar(&pkgName, "pkg", "", "Short form of --package")
 	return cmd
 }
 

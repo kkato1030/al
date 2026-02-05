@@ -37,8 +37,10 @@ func NewPackageListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Filter packages by profile name")
-	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Filter packages by provider name")
+	cmd.Flags().StringVar(&profile, "profile", "", "Filter packages by profile name")
+	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
+	cmd.Flags().StringVar(&provider, "provider", "", "Filter packages by provider name")
+	cmd.Flags().StringVar(&provider, "prv", "", "Short form of --provider")
 	cmd.Flags().BoolVar(&noPager, "no-pager", false, "Do not pipe output through a pager")
 
 	return cmd

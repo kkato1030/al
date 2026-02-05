@@ -29,7 +29,8 @@ func NewPackageSearchCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&providerName, "provider", "p", "", "Provider name (required)")
+	cmd.Flags().StringVar(&providerName, "provider", "", "Provider name (required)")
+	cmd.Flags().StringVar(&providerName, "prv", "", "Short form of --provider")
 
 	return cmd
 }

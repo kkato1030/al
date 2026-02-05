@@ -83,8 +83,10 @@ func NewPackageAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Provider name (required)")
-	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (profile_name, or full profile_name.stage_name)")
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider name (required)")
+	cmd.Flags().StringVar(&provider, "prv", "", "Short form of --provider")
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile name (profile_name, or full profile_name.stage_name)")
+	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
 	cmd.Flags().StringVarP(&stage, "stage", "s", "", "Stage name (stage_name)")
 	cmd.Flags().StringVarP(&version, "version", "v", "", "Package version (optional)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "Package description (optional)")

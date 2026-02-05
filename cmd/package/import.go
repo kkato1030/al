@@ -202,7 +202,8 @@ func NewPackageImportCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile to register packages to (required)")
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile to register packages to (required)")
+	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
 	cmd.Flags().StringVarP(&stage, "stage", "s", "", "Stage name (optional)")
 	cmd.Flags().BoolVar(&install, "install", false, "Install packages that are not yet installed via brew/mas")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be imported without writing")

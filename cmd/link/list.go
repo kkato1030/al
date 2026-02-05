@@ -21,6 +21,7 @@ func NewListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&pkgName, "package", "", "Filter by package name")
+	cmd.Flags().StringVar(&pkgName, "pkg", "", "Short form of --package")
 	return cmd
 }
 

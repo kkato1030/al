@@ -103,11 +103,11 @@ al profile list
 al profile delete <profile-name>
 ```
 
-Profile を指定する場合は、各種コマンドで `-p (--profile)` を指定します：
+Profile を指定する場合は、各種コマンドで `--profile` または `--prf` を指定します：
 
 ```bash
 # work にインストールする場合
-al add <package> -p work
+al add <package> --prf work
 ```
 
 ### Brewfile からの移行（import）
@@ -132,7 +132,7 @@ al package import [Brewfileのパス] --profile <profile>
 
 | オプション | 説明 |
 | ---------- | ----- |
-| `-f`, `--profile` | 登録先の profile（必須） |
+| `--profile`, `--prf` | 登録先の profile（必須） |
 | `-s`, `--stage` | stage 名（省略時はデフォルト設定を使用） |
 | `--dry-run` | 実際には書き込まず、パース結果と登録予定の一覧だけ表示する |
 | `--install` | 未インストールのパッケージを brew/mas でインストールする（デフォルトは登録のみ） |

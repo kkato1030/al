@@ -38,8 +38,10 @@ func NewPackageRemoveCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&provider, "provider", "p", "", "Provider name (required)")
-	cmd.Flags().StringVarP(&profile, "profile", "f", "", "Profile name (required)")
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider name (required)")
+	cmd.Flags().StringVar(&provider, "prv", "", "Short form of --provider")
+	cmd.Flags().StringVar(&profile, "profile", "", "Profile name (required)")
+	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
 	cmd.Flags().BoolVar(&keepShell, "keep-shell", false, "Keep shell.d content when removing package")
 	cmd.Flags().BoolVar(&keepLink, "keep-link", false, "Keep link.d entry (clear package association only) when removing package")
 

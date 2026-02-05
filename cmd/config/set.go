@@ -48,7 +48,9 @@ func NewConfigSetCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&defaultProvider, "default-provider", "", "Set the default provider")
+	cmd.Flags().StringVar(&defaultProvider, "default-prv", "", "Short form of --default-provider")
 	cmd.Flags().StringVar(&defaultProfile, "default-profile", "", "Set the default profile")
+	cmd.Flags().StringVar(&defaultProfile, "default-prf", "", "Short form of --default-profile")
 	cmd.Flags().StringVar(&defaultStage, "default-stage", "", "Set the default stage")
 
 	return cmd

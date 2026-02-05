@@ -2,6 +2,7 @@ package link
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/ui"
@@ -12,27 +13,29 @@ import (
 func NewAddCmd() *cobra.Command {
 	var path string
 	var pkgName string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "add <name> --path <path> [--package <pkg>]",
 		Short: "Add a path to link.d",
-		Long:  "Add a file or directory to link.d under the given name. The path becomes a symlink to link.d/<name>. Use --package to associate with a package; type is inferred (existing path: by stat; non-existing: trailing / = dir, else file).",
+		Long:  "Add a file or directory to link.d under the given name. The path becomes a symlink to link.d/<name>. Use --package to associate with a package; type is inferred (existing path: by stat; non-existing: trailing / = dir, else file). Use --force to replace an existing link of the same name.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			if path == "" {
 				return fmt.Errorf("--path is required")
 			}
-			return runAdd(name, path, pkgName)
+			return runAdd(name, path, pkgName, force)
 		},
 	}
 	cmd.Flags().StringVar(&path, "path", "", "Path to add (symlink location)")
 	cmd.MarkFlagRequired("path")
 	cmd.Flags().StringVar(&pkgName, "package", "", "Package name to associate (optional)")
 	cmd.Flags().StringVar(&pkgName, "pkg", "", "Short form of --package")
+	cmd.Flags().BoolVar(&force, "force", false, "Replace existing link with the same name")
 	return cmd
 }
 
-func runAdd(name, userPath, pkgName string) error {
+func runAdd(name, userPath, pkgName string, force bool) error {
 	var packageID, packageProvider string
 	if pkgName != "" {
 		pkg, err := ui.ResolvePackageByName(pkgName)
@@ -47,6 +50,12 @@ func runAdd(name, userPath, pkgName string) error {
 		return err
 	}
 	entry, err := config.AddLink(name, userPath, linkType, packageID, packageProvider)
+	if err != nil && force && strings.Contains(err.Error(), "link name already exists") {
+		if removeErr := config.ForceRemoveLinkEntry(name); removeErr != nil {
+			return fmt.Errorf("replacing existing link: %w", removeErr)
+		}
+		entry, err = config.AddLink(name, userPath, linkType, packageID, packageProvider)
+	}
 	if err != nil {
 		return err
 	}

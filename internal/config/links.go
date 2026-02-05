@@ -115,6 +115,17 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 	if err != nil {
 		return nil, err
 	}
+	// When path exists and is a symlink, use its target as the copy source so we store the real content under al.
+	copySourcePath := absUserPath
+	if _, err := os.Lstat(absUserPath); err == nil {
+		if resolved, err := filepath.EvalSymlinks(absUserPath); err == nil {
+			copySourcePath = resolved
+		}
+	}
+	// Resolve link type from actual path when it exists (avoids "read: is a directory" when path is a dir)
+	if fi, err := os.Stat(copySourcePath); err == nil && fi.IsDir() {
+		linkType = LinkTypeDir
+	}
 	if err := EnsureConfigDir(); err != nil {
 		return nil, err
 	}
@@ -124,7 +135,7 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 	}
 	entryDir := filepath.Join(linkDir, safeName)
 	if _, err := os.Stat(entryDir); err == nil {
-		return nil, fmt.Errorf("link name already exists: %s", safeName)
+		return nil, fmt.Errorf("link name already exists: %s (use --force to replace)", safeName)
 	}
 	contentPath := filepath.Join(entryDir, linkContentName)
 	if err := os.MkdirAll(entryDir, 0755); err != nil {
@@ -137,9 +148,9 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 		PackageProvider: packageProvider,
 	}
 	if linkType == LinkTypeFile {
-		// Copy file to link.d/<name>/content
-		if _, err := os.Stat(absUserPath); err == nil {
-			src, err := os.Open(absUserPath)
+		// Copy file to link.d/<name>/content (from copySourcePath so symlink targets are followed)
+		if _, err := os.Stat(copySourcePath); err == nil {
+			src, err := os.Open(copySourcePath)
 			if err != nil {
 				return nil, err
 			}
@@ -162,9 +173,9 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 			}
 		}
 	} else {
-		// Dir: content is link.d/<name>/content/ (a directory)
-		if _, err := os.Stat(absUserPath); err == nil {
-			if err := copyDir(absUserPath, contentPath); err != nil {
+		// Dir: content is link.d/<name>/content/ (copy from copySourcePath so symlink target is used)
+		if _, err := os.Stat(copySourcePath); err == nil {
+			if err := copyDir(copySourcePath, contentPath); err != nil {
 				return nil, err
 			}
 		} else {
@@ -177,12 +188,21 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 		os.RemoveAll(entryDir)
 		return nil, err
 	}
-	// Remove original so we can create symlink (for existing paths)
-	if _, err := os.Stat(absUserPath); err == nil {
-		if err := os.RemoveAll(absUserPath); err != nil {
-			os.RemoveAll(entryDir)
-			return nil, fmt.Errorf("removing original for symlink: %w", err)
+	// Remove original so we can create symlink (for existing paths). If it's a symlink, remove only the link not the target.
+	if fi, err := os.Lstat(absUserPath); err == nil {
+		var removeErr error
+		if fi.Mode()&os.ModeSymlink != 0 {
+			removeErr = os.Remove(absUserPath)
+		} else {
+			removeErr = os.RemoveAll(absUserPath)
 		}
+		if removeErr != nil {
+			os.RemoveAll(entryDir)
+			return nil, fmt.Errorf("removing original for symlink: %w", removeErr)
+		}
+	} else if !os.IsNotExist(err) {
+		os.RemoveAll(entryDir)
+		return nil, fmt.Errorf("stat original path: %w", err)
 	} else {
 		// Ensure parent dir exists for new path
 		if err := os.MkdirAll(filepath.Dir(absUserPath), 0755); err != nil {
@@ -344,6 +364,27 @@ func RemoveLink(entry *LinkEntry, entryDir string, purge bool) error {
 					return err
 				}
 			}
+		}
+	}
+	return os.RemoveAll(entryDir)
+}
+
+// ForceRemoveLinkEntry removes link.d/<name> so a new link with the same name can be added.
+// Removes the symlink at UserPath when manifest is readable; then removes the entry directory.
+// Used by link add --force when "link name already exists".
+func ForceRemoveLinkEntry(name string) error {
+	safeName, err := sanitizeLinkName(name)
+	if err != nil {
+		return err
+	}
+	linkDir, err := GetLinkDir()
+	if err != nil {
+		return err
+	}
+	entryDir := filepath.Join(linkDir, safeName)
+	if m, err := loadLinkManifest(entryDir); err == nil {
+		if _, err := os.Lstat(m.UserPath); err == nil {
+			_ = os.Remove(m.UserPath)
 		}
 	}
 	return os.RemoveAll(entryDir)

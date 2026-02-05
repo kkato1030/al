@@ -18,6 +18,7 @@ const defaultBackupRepoName = "dotal"
 // NewBackupCmd creates the backup command
 func NewBackupCmd() *cobra.Command {
 	var init bool
+	var private bool
 	var repo string
 
 	cmd := &cobra.Command{
@@ -26,17 +27,18 @@ func NewBackupCmd() *cobra.Command {
 		Long:  "Commit and push ~/.al (AL_HOME) to a GitHub repository. Default repo is owner/dotal (owner from gh). Use --init to create the repository on GitHub first.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBackup(init, repo)
+			return runBackup(init, private, repo)
 		},
 	}
 
 	cmd.Flags().BoolVar(&init, "init", false, "Create the GitHub repository if it does not exist, then push")
+	cmd.Flags().BoolVar(&private, "private", false, "With --init, create the repository as private")
 	cmd.Flags().StringVar(&repo, "repo", "", "Override backup repository (owner/repo, e.g. kkato1030/dotal)")
 
 	return cmd
 }
 
-func runBackup(doInit bool, repoOverride string) error {
+func runBackup(doInit bool, private bool, repoOverride string) error {
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)
@@ -54,7 +56,7 @@ func runBackup(doInit bool, repoOverride string) error {
 	remoteURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 
 	if doInit {
-		if err := ensureRepoOnGitHub(owner, repo); err != nil {
+		if err := ensureRepoOnGitHub(owner, repo, private); err != nil {
 			return err
 		}
 		if err := ensureGitInConfigDir(configDir, remoteURL); err != nil {
@@ -123,9 +125,13 @@ func getGitHubLogin() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func ensureRepoOnGitHub(owner, repo string) error {
-	// gh repo create owner/repo --public (idempotent: fails if repo exists)
-	cmd := exec.Command("gh", "repo", "create", owner+"/"+repo, "--public", "--description", "al config backup")
+func ensureRepoOnGitHub(owner, repo string, private bool) error {
+	// gh repo create owner/repo (idempotent: fails if repo exists)
+	vis := "--public"
+	if private {
+		vis = "--private"
+	}
+	cmd := exec.Command("gh", "repo", "create", owner+"/"+repo, vis, "--description", "al config backup")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	err := cmd.Run()

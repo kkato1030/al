@@ -364,3 +364,56 @@ func ClearLinkPackageAssociation(entryDir string) error {
 	m.PackageProvider = ""
 	return saveLinkManifest(entryDir, m)
 }
+
+// EnsureLinkSymlink ensures that userPath is a symlink pointing to the link.d content.
+// If userPath does not exist, creates the parent directory and the symlink.
+// If userPath exists but is not the correct symlink (or is a regular file/dir), removes it and creates the symlink (overwrite).
+// contentPath must already exist (link.d/<name>/content).
+func EnsureLinkSymlink(entry *LinkEntry, entryDir string) error {
+	contentPath := GetLinkContentPath(entryDir)
+	if _, err := os.Stat(contentPath); err != nil {
+		return fmt.Errorf("link content does not exist at %s: %w", contentPath, err)
+	}
+	userPath := entry.Manifest.UserPath
+
+	// Resolve contentPath to absolute so the symlink target is stable
+	absContent, err := filepath.Abs(contentPath)
+	if err != nil {
+		return fmt.Errorf("resolve content path: %w", err)
+	}
+
+	fi, err := os.Lstat(userPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Create parent dir and symlink
+			if err := os.MkdirAll(filepath.Dir(userPath), 0755); err != nil {
+				return fmt.Errorf("create parent dir for %s: %w", userPath, err)
+			}
+			return os.Symlink(absContent, userPath)
+		}
+		return fmt.Errorf("stat %s: %w", userPath, err)
+	}
+
+	// userPath exists
+	if fi.Mode()&os.ModeSymlink != 0 {
+		dest, err := os.Readlink(userPath)
+		if err != nil {
+			return fmt.Errorf("readlink %s: %w", userPath, err)
+		}
+		// Resolve dest to absolute (dest may be relative to userPath's dir)
+		var destAbs string
+		if filepath.IsAbs(dest) {
+			destAbs, _ = filepath.Abs(dest)
+		} else {
+			destAbs, _ = filepath.Abs(filepath.Join(filepath.Dir(userPath), dest))
+		}
+		if filepath.Clean(destAbs) == filepath.Clean(absContent) {
+			return nil // already correct
+		}
+	}
+	// Not a symlink or wrong target: remove and create
+	if err := os.RemoveAll(userPath); err != nil {
+		return fmt.Errorf("remove existing %s: %w", userPath, err)
+	}
+	return os.Symlink(absContent, userPath)
+}

@@ -17,6 +17,7 @@ type ProfileConfig struct {
 	Extends            []string `json:"extends,omitempty"`
 	PromoteTo          string   `json:"promote_to,omitempty"`
 	PackageDuplication string   `json:"package_duplication,omitempty"`
+	AutoSync           *bool    `json:"auto_sync,omitempty"` // nil/true = include in "al sync" (default), false = exclude unless --profile
 }
 
 // ProfilesConfig represents the collection of profile configurations
@@ -204,4 +205,99 @@ func BuildProfileName(profileName, stageName string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s.%s", profileName, stageName), nil
+}
+
+// IsAutoSyncEnabled returns true if the profile should be included in "al sync" by default (or with --all).
+// nil or true means include, false means exclude unless explicitly specified with --profile.
+func IsAutoSyncEnabled(p ProfileConfig) bool {
+	return p.AutoSync == nil || *p.AutoSync
+}
+
+// profileByName returns a profile from the config by name, or nil if not found.
+func profileByName(cfg *ProfilesConfig, name string) *ProfileConfig {
+	for i := range cfg.Profiles {
+		if cfg.Profiles[i].Name == name {
+			return &cfg.Profiles[i]
+		}
+	}
+	return nil
+}
+
+// ResolveProfileWithExtends returns the given profile name and all profiles it extends (recursively), with no duplicates.
+func ResolveProfileWithExtends(name string) ([]string, error) {
+	cfg, err := LoadProfilesConfig()
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool)
+	var out []string
+	var visit func(string) error
+	visit = func(n string) error {
+		if seen[n] {
+			return nil
+		}
+		seen[n] = true
+		out = append(out, n)
+		p := profileByName(cfg, n)
+		if p == nil {
+			return fmt.Errorf("profile not found: %s", n)
+		}
+		for _, e := range p.Extends {
+			if err := visit(e); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := visit(name); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetSyncTargetProfileNames returns profile names to sync based on mode.
+// Mode: "default" = default_profile + extends, filtered by AutoSync; "all" = all profiles with AutoSync; "profile" = given name + extends (no filter).
+func GetSyncTargetProfileNames(mode string, profileName string) ([]string, error) {
+	profilesCfg, err := LoadProfilesConfig()
+	if err != nil {
+		return nil, err
+	}
+	switch mode {
+	case "profile":
+		if profileName == "" {
+			return nil, fmt.Errorf("profile name required for mode profile")
+		}
+		return ResolveProfileWithExtends(profileName)
+	case "all":
+		var names []string
+		for _, p := range profilesCfg.Profiles {
+			if IsAutoSyncEnabled(p) {
+				names = append(names, p.Name)
+			}
+		}
+		return names, nil
+	case "default":
+		appCfg, err := LoadAppConfig()
+		if err != nil {
+			return nil, err
+		}
+		def := strings.TrimSpace(appCfg.DefaultProfile)
+		if def == "" {
+			return []string{}, nil
+		}
+		all, err := ResolveProfileWithExtends(def)
+		if err != nil {
+			return nil, err
+		}
+		var names []string
+		for _, n := range all {
+			p := profileByName(profilesCfg, n)
+			if p != nil && IsAutoSyncEnabled(*p) {
+				names = append(names, n)
+			}
+		}
+		return names, nil
+	default:
+		return nil, fmt.Errorf("invalid sync mode: %s", mode)
+	}
 }

@@ -110,9 +110,9 @@ func runPackageRemove(packageName, providerName, profile string, keepShell, keep
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}
 
-	// Uninstall the package using ID
+	// Uninstall the package using ID (ignore error if not installed — we still remove from config)
 	if err := p.UninstallPackage(foundPkg.ID); err != nil {
-		return fmt.Errorf("error uninstalling package: %w", err)
+		// Package may not be installed; continue to remove from config and clean up
 	}
 
 	// Remove the package from config

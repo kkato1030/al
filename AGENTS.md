@@ -66,7 +66,7 @@
 - **`internal/`**: 設定・プロバイダ・Brewfile パース・UI など本番用ロジック（外部から import しない想定）
 - **`main.go`**: エントリポイント。バージョン・ビルド情報は ldflags で注入（Makefile 参照）
 - **`testdata/`**: テスト用データ（例: Brewfile）
-- **`docs/`**: 設計・計画メモ（必要に応じて参照）
+- **`docs/`**: 設計・計画メモ（必要に応じて参照）。jj コマンドのチートシートは `docs/jj-cheat-sheet.md` を参照
 - **`.github/workflows/`**: CI（例: release）
 - **`.goreleaser.yml`**: リリース・ビルド設定
 

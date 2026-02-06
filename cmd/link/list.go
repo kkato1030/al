@@ -2,6 +2,8 @@ package link
 
 import (
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/ui"
@@ -43,12 +45,19 @@ func runList(pkgName string) error {
 		fmt.Println("(no links)")
 		return nil
 	}
+	maxNameRunes := 0
+	for _, l := range links {
+		if n := utf8.RuneCountInString(l.Name); n > maxNameRunes {
+			maxNameRunes = n
+		}
+	}
 	for _, l := range links {
 		pkgInfo := ""
 		if l.Manifest.PackageID != "" {
 			pkgInfo = fmt.Sprintf(" [package: %s/%s]", l.Manifest.PackageID, l.Manifest.PackageProvider)
 		}
-		fmt.Printf("%s -> %s (%s)%s\n", l.Name, l.Manifest.UserPath, l.Manifest.Type, pkgInfo)
+		paddedName := l.Name + strings.Repeat(" ", maxNameRunes-utf8.RuneCountInString(l.Name))
+		fmt.Printf("%s -> %s (%s)%s\n", paddedName, l.Manifest.UserPath, l.Manifest.Type, pkgInfo)
 	}
 	return nil
 }

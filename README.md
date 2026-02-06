@@ -1,181 +1,242 @@
 # al - Mac Management Tools
 
-`al` は Mac のパッケージや設定を管理するためのツールです。新しいパッケージや設定を試用してから本格採用する「trial/core モデル」により、安定した環境を維持しながら柔軟に実験できます。
+Mac のパッケージ（Homebrew / mas）と設定（dotfiles・シェル）を一元管理する CLI。Profile と Stage（trial / stable）で環境を分離し、試用後に本番へ昇格させる運用をサポートする。
 
-## 概要
+---
 
-`al` を使うことで、以下のような Mac 環境の管理が可能になります：
+## Quick Start
 
-- Homebrew パッケージの管理
-- dotfiles（設定ファイル）の管理
-- アプリケーション設定の管理
-- シェル設定の管理
-- その他 Mac 環境に関連するあらゆるパッケージ・設定の管理
+### インストール
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
+al version
+```
+
+### 初期化
+
+```bash
+al init
+```
+
+以下が行われる: 設定ディレクトリ `~/.al`（または `$AL_HOME`）の作成、profile `core`（stage: trial）の作成、provider `brew` の登録、デフォルト設定（profile=core, provider=brew, stage=trial）の保存。
+
+### パッケージの追加
+
+```bash
+al add jq
+al add --prv mas "Xcode" --id 497799835
+```
+
+デフォルトは brew。未インストールの場合はその場でインストールされる。`--profile` / `--prf`、`--provider` / `--prv`、`--stage` / `-s` で登録先を指定可能。
+
+### シェルの有効化
+
+`.zshrc` または `.bashrc` に次の 1 行を追加する（al は設定ファイルを自動編集しない）:
+
+```bash
+eval "$(al activate zsh)"   # zsh
+eval "$(al activate bash)"  # bash
+```
+
+有効になる内容: shell.d の有効スニペットの source、`brew install/uninstall` および `mas install/uninstall` 実行時の al 利用の案内（`y` で従来どおり実行）。
+
+### 環境の同期・バックアップ
+
+- GitHub のリポジトリから `~/.al` を clone して適用: `al sync owner/repo`（初回は clone、以降は適用のみ）
+- 現在の設定を GitHub に push: `al backup --init`（リポジトリが無ければ作成して push）
+
+---
+
+## 機能一覧
+
+| 機能 | 説明 | 主なコマンド |
+|------|------|----------------|
+| パッケージ管理 | Homebrew / mas の追加・削除・昇格・一覧・アップグレード | `al add`, `al remove`, `al promote`, `al list`, `al upgrade` |
+| Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
+| link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
+| shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al package shell show/set/edit/enable/disable` |
+| sync / backup | GitHub との clone 適用・push | `al sync [owner/repo]`, `al backup` |
+| Brewfile 取り込み | 既存 Brewfile を al の管理下に登録 | `al import Brewfile --prf <profile>` |
+| 設定 | デフォルト profile / provider / stage、バックアップ先、エイリアス | `al config set/show`, `al config alias list` |
+
+エイリアス一覧は `al config alias list`。例: `al add` → `al package add`、`al promote` → trial から promote_to への移動。
+
+---
+
+## 概念
+
+### Profile と Stage
+
+- **Profile**: 環境の単位（例: core, work, private）。各 profile は独立したパッケージ一覧を持つ。`al add --prf <profile> ...` で登録先を指定する。
+- **Stage**: 試用（trial）か本番（stable）かを表す。Profile 名は `profile_name.stage_name`（例: `core.trial`, `core.stable`）。`al init` で作成されるのは `core`（stage: trial）。カスタム profile は `al profile add` で追加する。
+
+### promote（昇格）
+
+Profile に `promote_to` を設定すると、パッケージを trial から stable などへ移動できる。`al package move <name> --to <profile>` またはエイリアス `al promote <name>`（パッケージが属する profile の promote_to へ移動）。同一パッケージ（同一 ID・provider）が trial と stable の両方に同時に存在することはない。
+
+### Provider
+
+パッケージのインストール元。**brew**（Homebrew formula/cask/tap）、**mas**（Mac App Store）、**manual**（登録のみ、インストールは行わない）。`al init` で brew が追加される。mas は `al provider add mas`。デフォルト provider は `al config set --default-provider` で変更可能。
+
+### link.d
+
+設定ファイル・ディレクトリの実体を `~/.al/link.d/<name>/content` に置き、ユーザが参照するパス（例: `~/.config/foo`）をその content への symlink にする。sync / backup で他マシンや GitHub と揃えられる。追加は `al link add <name> <user_path>`。パッケージに紐づける場合は `al package link add/remove/edit`（link 名 = パッケージ名の 1:1 想定）。
+
+### shell.d
+
+パッケージごとのシェル設定を `~/.al/shell.d/<パッケージ識別子>/` に置き、`al activate` の出力でまとめて source する。読み込み順は after で制御。有効/無効は `al package shell enable/disable`。
+
+### extends
+
+Profile が別の profile を継承する指定。例: `work` が `core.stable` を extends する場合、`al sync --profile work` では work と core.stable のパッケージが適用される。
+
+### sync と backup
+
+- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。
+- **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。
+
+---
 
 ## インストール
 
-### 最新版のインストール
+**最新版**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
 ```
 
-### 特定バージョンのインストール
+**特定バージョン**
 
 ```bash
 AL_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
 ```
 
-### カスタムインストール先の指定
-
-デフォルトでは `/usr/local/bin` にインストールされますが、環境変数で変更できます：
+**インストール先**（デフォルト: `/usr/local/bin`）
 
 ```bash
 AL_INSTALL_DIR=$HOME/bin curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
 ```
 
-### インストールの確認
+**セルフアップデート**
 
 ```bash
-al version
+al update
 ```
 
-## 主要な概念
+---
 
-### Trial/Core モデル
+## コマンドリファレンス
 
-`al` は **trial/core モデル**を採用しています。このモデルでは、新しいパッケージや設定はまず **trial** に追加され、実際に使用してみてから判断します。十分に検証され、常用する価値があると判断した場合のみ、**core** に昇格させます。
+### ルート
 
-**重要な原則**: trial と core は排他的です。同じパッケージ・設定が trial と core の両方に存在することはできません。
-
-このモデルのメリット：
-
-- **慎重な採用**: 新しいパッケージや設定を即座に本番環境に追加せず、実際の使用経験を積んでから判断できる
-- **環境の安定性**: core に含まれるパッケージ・設定は、十分に検証された信頼できるもののみが含まれる
-- **柔軟な実験**: trial で自由に試行錯誤を行い、不要なものは core に昇格させずに削除できる
-
-### Profile
-
-`al` では、用途に応じて複数の **profile** を作成し、環境を分離できます。各 profile は独立した trial/core のセットを持ちます。
-
-- **デフォルト profile**: `trial` と `core` は常に存在するデフォルトの profile です。これらは変更・削除できません。
-- **カスタム profile**: `work` や `private` などの profile を任意に作成・切り替え・削除できます。
-
-例えば：
-- **work** profile: 仕事用の環境に必要なパッケージ・設定
-- **private** profile: プライベート用の環境に必要なパッケージ・設定
-
-## サブコマンド一覧と役割
-
-| コマンド | 役割 |
+| コマンド | 説明 |
 |----------|------|
-| **al config** | アプリのデフォルト設定（default_provider / default_profile / default_stage / alias） |
-| **al link** | link.d の管理。設定ファイル・ディレクトリを `~/.al/link.d/<name>/` に置き、ユーザ向けパスを symlink にする。add / list / remove / edit。 |
-| **al activate** | shell.d の有効スニペットを source するシェルコードと、brew/mas の install・uninstall 時に al を促すフックを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を 1 行書く（al は .zshrc を編集しない）。直接実行したい場合は [y/N] で y を押す。 |
-| **al package shell** | パッケージに紐づく shell.d スニペットの管理。show / set / unset / edit / enable / disable。 |
-| **al package link** | パッケージに紐づく link.d の管理（link 名 = パッケージ名、1 パッケージ 1 link 想定）。add / remove / edit。 |
+| `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
+| `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する |
+| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用 |
+| `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
+| `al update` | al 本体を最新版に更新 |
+| `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |
+| `al version` | バージョン表示 |
 
-### brew / mas 実行時の al への誘導（hook）
+### エイリアス（`al config alias list` で一覧）
 
-`eval "$(al activate zsh)"` または `eval "$(al activate bash)"` を有効にしている場合、**al activate の出力に brew/mas 用のフックが含まれます**。`brew install` / `brew uninstall` や `mas install` / `mas uninstall` を実行すると、al での管理を促すメッセージと「直接実行しますか？ [y/N]」が表示されます。`y` を押すと従来どおり brew / mas が直接実行され、それ以外の場合はスキップされ al での操作が案内されます。
+`al add` → `al package add`、`al remove` → `al package remove`、`al list` → `al package list`、`al promote` → `al package move {args} --to package.promote_to`、`al import` → `al package import {args}`、`al pkg` → `al package`、`al prf` → `al profile`、`al prv` → `al provider`
 
-## 基本的な使い方
+### al config
 
-### パッケージ・設定の追加
+| サブコマンド | 説明 |
+|--------------|------|
+| `al config set` | `--default-provider`, `--default-profile`, `--default-stage`, `--backup-repo` を設定 |
+| `al config show` | 現在の設定を表示 |
+| `al config alias list` | エイリアス一覧 |
 
-新しいパッケージや設定を試す場合は、add で追加します：
+### al profile
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al profile add [名前]` | profile を追加（`-t` でテンプレートから作成） |
+| `al profile list` | 一覧 |
+| `al profile show [名前]` | 詳細 |
+| `al profile remove <名前>` | 削除 |
+| `al profile template` | 利用可能なテンプレート一覧 |
+
+### al provider
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al provider add <名前>` | 登録（brew / mas など） |
+| `al provider list` | 一覧 |
+| `al provider upgrade` | 全 provider のアップグレード |
+
+### al package
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al package add [名前]` | 追加（`--provider`, `--profile`, `--stage`, `--id` など） |
+| `al package list` | 一覧（`--profile` で絞り込み） |
+| `al package show <名前>` | 詳細 |
+| `al package remove <名前>` | 削除 |
+| `al package move <名前> --to <profile>` | 別 profile へ移動 |
+| `al package import [Brewfile]` | Brewfile から取り込み（`--prf`, `--install`, `--dry-run` など） |
+| `al package search <検索語>` | 検索 |
+| `al package upgrade` | 登録パッケージのアップグレード |
+| `al package shell` | shell.d の show/set/unset/edit/enable/disable |
+| `al package link` | link.d の add/remove/edit |
+
+### al link
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al link add <名前> <ユーザパス>` | link.d に登録し、ユーザパスを symlink に |
+| `al link list` | 一覧 |
+| `al link remove <名前>` | 削除（オプションで実体をユーザパスへ copy-back） |
+| `al link edit <名前>` | ユーザパスなどの編集 |
+
+---
+
+## Brewfile からの移行
+
+既存の Brewfile を al に取り込む。デフォルトは登録のみ（既存環境を al に寄せる想定）。
+
+**事前準備**: 登録先 profile を用意（`al profile add <profile>`）。Brewfile の種類に応じて `al provider add brew` / `al provider add mas` を実行。
 
 ```bash
-al add <package>
+al import Brewfile --prf core --dry-run   # 確認
+al import Brewfile --prf core             # 登録のみ
+al import Brewfile --prf core --install  # 未インストール分もインストール
 ```
-
-### Trial から Core への昇格
-
-trial で十分に検証し、常用する価値があると判断した場合、core に昇格させます：
-
-```bash
-al promote <package>
-```
-
-### Profile の管理
-
-カスタム profile を作成・確認・削除できます：
-
-```bash
-al profile create <profile-name>
-al profile list
-al profile delete <profile-name>
-```
-
-Profile を指定する場合は、各種コマンドで `--profile` または `--prf` を指定します：
-
-```bash
-# work にインストールする場合
-al add <package> --prf work
-```
-
-### Brewfile からの移行（import）
-
-すでに Homebrew の `brew bundle` や `mas` でアプリを管理している場合は、Brewfile を指定するだけで al の管理下に取り込めます。**登録のみ**がデフォルトで、既にインストール済みの環境を al に乗り換える用途を想定しています。
-
-**事前準備**
-
-- 登録先の profile を用意する（`al profile add <profile>`）
-- Brewfile に含まれる種類に応じて、brew / mas の provider を追加する（`al provider add brew`, `al provider add mas`）
-
-**基本的な使い方**
-
-```bash
-# Brewfile を指定して import（パス省略時は ./Brewfile または ~/.Brewfile を参照）
-al import [Brewfileのパス] --profile <profile>
-# または
-al package import [Brewfileのパス] --profile <profile>
-```
-
-**主なオプション**
 
 | オプション | 説明 |
-| ---------- | ----- |
-| `--profile`, `--prf` | 登録先の profile（必須） |
-| `-s`, `--stage` | stage 名（省略時はデフォルト設定を使用） |
-| `--dry-run` | 実際には書き込まず、パース結果と登録予定の一覧だけ表示する |
-| `--install` | 未インストールのパッケージを brew/mas でインストールする（デフォルトは登録のみ） |
-| `--overwrite` | 既に同じ id・provider・profile で登録済みのものを上書きする |
-| `--verbose` | 対応外の行（vscode / go / cargo など）をスキップした理由を表示する |
+|------------|------|
+| `--profile`, `--prf` | 登録先 profile（必須） |
+| `-s`, `--stage` | stage 名 |
+| `--dry-run` | 書き込まずパース結果と登録予定の一覧のみ表示 |
+| `--install` | 未インストールのパッケージを brew/mas でインストール |
+| `--overwrite` | 同一 id・provider・profile の既存登録を上書き |
+| `--verbose` | 対応外の行をスキップした理由を表示 |
 
-**例**
+**対応行**: `tap "user/repo"`、`brew "formula"`、`cask "name"`、`mas "App Name", id: 1234567890`。vscode / go / cargo / flatpak 等はスキップ（`--verbose` で確認可能）。
 
-```bash
-# 登録内容を確認してから import
-al import Brewfile --profile default --dry-run
-
-# import 実行（登録のみ）
-al import Brewfile --profile default
-
-# 未インストール分もインストールしながら import
-al import Brewfile --profile default --install
-```
-
-**Brewfile で対応している行**
-
-- `tap "user/repo"` → brew provider の tap
-- `brew "formula"` → brew provider の formula
-- `cask "name"` → brew provider の cask
-- `mas "App Name", id: 1234567890` → mas provider
-
-vscode / go / cargo / flatpak などはスキップされ、`--verbose` で内容を確認できます。
+---
 
 ## 使用例
 
-### 例1: 新しいパッケージを試す
+**試用から本番への昇格**
 
-1. 新しいパッケージを trial に追加
-2. 一定期間使用して評価
-3. 気に入ったら `al promote` で core に昇格
-4. 気に入らなければ trial から削除
+1. `al add <パッケージ名>` で trial に追加
+2. 評価後、`al promote <パッケージ名>` で昇格、不要なら `al remove <パッケージ名>`
 
-### 例2: 仕事用とプライベート用で環境を分離
+**仕事用・プライベートの分離**
 
-1. `work` profile を作成して仕事用のパッケージ・設定を管理
-2. `private` profile を作成してプライベート用のパッケージ・設定を管理
-3. 必要に応じて profile を切り替えて使用
+1. `al profile add work -e core.stable -p core.stable`
+2. `al profile add private`
+3. `al add <パッケージ> --prf work` / `al add <パッケージ> --prf private`
+4. `al sync --profile work` または `al sync --all` で環境を揃える
+
+**GitHub での共有・復元**
+
+1. `al backup --init` でリポジトリ作成と push
+2. 別マシンで `al sync owner/dotal` で clone して適用
+3. 変更後は `al backup` で push

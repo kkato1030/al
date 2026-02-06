@@ -143,8 +143,30 @@ func NewPackageImportCmd() *cobra.Command {
 			skipped := 0
 			brewImported := 0
 			masImported := 0
+			tapsImported := 0
 
 			for _, e := range result.Entries {
+				// Brew taps are managed by provider brew, not as packages (issue #50).
+				if e.Provider == "brew" && strings.HasPrefix(e.ID, "tap:") {
+					tapName := strings.TrimPrefix(e.ID, "tap:")
+					hasTap, err := config.HasBrewTap(tapName)
+					if err != nil {
+						return fmt.Errorf("load brew taps: %w", err)
+					}
+					if !hasTap {
+						if install && brewProv != nil {
+							if err := brewProv.InstallPackage(e.ID); err != nil {
+								return fmt.Errorf("install tap %s: %w", tapName, err)
+							}
+						}
+						if err := config.AddBrewTap(tapName); err != nil {
+							return fmt.Errorf("add brew tap %s: %w", tapName, err)
+						}
+						tapsImported++
+					}
+					continue
+				}
+
 				key := e.Provider + ":" + finalProfile + ":" + e.ID
 				if existing[key] && !overwrite {
 					skipped++
@@ -194,6 +216,9 @@ func NewPackageImportCmd() *cobra.Command {
 			}
 
 			fmt.Printf("Imported %d packages (brew: %d, mas: %d)", imported, brewImported, masImported)
+			if tapsImported > 0 {
+				fmt.Printf(", %d tap(s) (managed by provider brew)", tapsImported)
+			}
 			if skipped > 0 {
 				fmt.Printf(". Skipped %d (already registered)", skipped)
 			}

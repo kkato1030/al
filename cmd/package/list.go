@@ -159,9 +159,13 @@ func runPackageList(w io.Writer, profileFilter, providerFilter string) error {
 		return fmt.Errorf("error loading packages config: %w", err)
 	}
 
-	// Filter packages based on provided flags
+	// Filter packages based on provided flags.
+	// Exclude brew taps from list: taps are managed by provider brew, not as packages (see issue #50).
 	var filteredPackages []config.PackageConfig
 	for _, pkg := range packagesConfig.Packages {
+		if pkg.Provider == "brew" && strings.HasPrefix(pkg.ID, "tap:") {
+			continue
+		}
 		matchesProfile := profileFilter == "" || pkg.Profile == profileFilter
 		matchesProvider := providerFilter == "" || pkg.Provider == providerFilter
 

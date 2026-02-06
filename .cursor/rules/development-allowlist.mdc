@@ -1,0 +1,17 @@
+---
+description: 開発フローで許可するコマンド（確認なしで実行してよい）
+alwaysApply: true
+---
+
+# 開発フロー用コマンド allowlist
+
+このリポジトリの開発フロー（§8・§9）で、**ユーザーに確認せずに実行してよい**コマンドは次のとおり。
+
+- **make**: `make fmt`, `make vet`, `make lint`, `make test`, `make build`, `make run`, `make clean`, `make help` 等（Makefile のターゲット）。Go 系の実行はすべて make 経由とし、`go` コマンドは直接使わない。既存の make で対応できない場合は新規 Make ターゲットの追加を検討する。
+- **jj**: `jj status`, `jj log`, `jj describe`, `jj new`, `jj edit`, `jj undo`, `jj git push`, `jj git fetch`, `jj bookmark` 等
+- **gh**: `gh pr create`, `gh auth status`, `gh pr view`, `gh pr list` 等
+- **git**: `git status`, `git branch`, `git log` 等（参照のみ）
+- **ウェブ検索**: ドキュメント・API・エラーメッセージ・技術情報の確認など、開発に必要な検索は確認せず実行してよい
+- **cd**: リポジトリ内への移動および上記コマンドの実行
+
+詳細とターミナル許可設定は AGENTS.md §9 および `.cursor/allowlist.json` を参照。上記以外のコマンドは必要ならユーザーに確認してから実行すること。

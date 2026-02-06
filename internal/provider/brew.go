@@ -144,19 +144,21 @@ func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
 		return "formula", nil
 	}
 
-	// Try tap (format: tap_name/package_name or just tap_name)
+	// Try tap: "user/repo" is a tap name (installed or not)
 	if strings.Contains(packageName, "/") {
 		parts := strings.SplitN(packageName, "/", 2)
 		if len(parts) == 2 {
-			// Check if tap exists
-			cmd = exec.Command("brew", "tap-info", parts[0])
+			// Check if tap is already installed (full name: user/repo)
+			cmd = exec.Command("brew", "tap-info", packageName)
 			err = cmd.Run()
 			if err == nil {
 				return "tap", nil
 			}
+			// Not installed yet: treat "user/repo" as tap so "brew tap user/repo" runs
+			return "tap", nil
 		}
 	} else {
-		// Check if it's a tap name itself
+		// Single word: check if it's an installed tap name
 		cmd = exec.Command("brew", "tap-info", packageName)
 		err = cmd.Run()
 		if err == nil {

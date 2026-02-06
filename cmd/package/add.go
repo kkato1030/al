@@ -261,6 +261,27 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 		return fmt.Errorf("unsupported provider: %s", providerName)
 	}
 
+	// Brew taps are managed by provider brew, not as packages (issue #50).
+	if providerName == "brew" && strings.HasPrefix(finalID, "tap:") {
+		tapName := strings.TrimPrefix(finalID, "tap:")
+		exists, err := config.HasBrewTap(tapName)
+		if err != nil {
+			return fmt.Errorf("error loading brew taps: %w", err)
+		}
+		if !exists {
+			if err := p.InstallPackage(finalID); err != nil {
+				return fmt.Errorf("error installing tap: %w", err)
+			}
+			if err := config.AddBrewTap(tapName); err != nil {
+				return fmt.Errorf("error saving brew taps: %w", err)
+			}
+			fmt.Printf("Tap '%s' has been added and is managed by provider brew.\n", tapName)
+		} else {
+			fmt.Printf("Tap '%s' is already managed by provider brew.\n", tapName)
+		}
+		return nil
+	}
+
 	// Check if package already exists in config
 	packagesConfig, err := config.LoadPackagesConfig()
 	if err != nil {

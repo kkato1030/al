@@ -83,7 +83,9 @@ Profile に `review_days` を設定すると、その profile のパッケージ
 
 ### Provider
 
-パッケージのインストール元。**brew**（Homebrew formula/cask/tap）、**mas**（Mac App Store）、**manual**（登録のみ、インストールは行わない）。`al init` で brew が追加される。mas は `al provider add mas`。デフォルト provider は `al config set --default-provider` で変更可能。
+パッケージのインストール元。**brew**（Homebrew formula/cask）、**mas**（Mac App Store）、**manual**（登録のみ、インストールは行わない）。`al init` で brew が追加される。mas は `al provider add mas`。デフォルト provider は `al config set --default-provider` で変更可能。
+
+**brew tap**: `brew tap` で追加する tap はパッケージとは別に provider brew 側で管理する（`~/.al/brew-taps.json`）。`al list` には tap は出さない。`al add homebrew/cask-fonts` のように tap を指定すると brew-taps に登録される。`al provider prune` では、packages に `owner/repo/toolname` 形式のパッケージが1つもない tap を untap し、brew-taps から削除する。
 
 ### link.d
 
@@ -180,13 +182,14 @@ al update
 | `al provider add <名前>` | 登録（brew / mas など） |
 | `al provider list` | 一覧 |
 | `al provider upgrade` | 全 provider のアップグレード |
+| `al provider prune` | brew のみ: brew-taps に登録されている tap のうち、packages に `owner/repo/toolname` 形式のパッケージが1つもない tap を untap し、brew-taps からも削除。homebrew/core と homebrew/cask は対象外。`--dry-run` で確認、`-y` で確認スキップ |
 
 ### al package
 
 | サブコマンド | 説明 |
 |--------------|------|
 | `al package add [名前]` | 追加（`--provider`, `--profile`, `--stage`, `--id` など） |
-| `al package list` | 一覧（`--profile` で絞り込み） |
+| `al package list` | 一覧（`--profile` で絞り込み）。brew tap は表示しない（provider 側で管理） |
 | `al package show <名前>` | 詳細 |
 | `al package remove <名前>` | 削除 |
 | `al package move <名前> --to <profile>` | 別 profile へ移動 |

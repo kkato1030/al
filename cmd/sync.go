@@ -19,17 +19,20 @@ func NewSyncCmd() *cobra.Command {
 	var dryRun bool
 	var all bool
 	var profile string
+	var private bool
+	var pkgOnly bool
+	var linkOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "sync [owner/repo]",
 		Short: "Sync al environment: clone ~/.al if needed, then apply providers, packages, and links",
-		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends.",
+		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateSyncFlags(all, profile); err != nil {
+			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly); err != nil {
 				return err
 			}
-			return runSync(dryRun, all, profile, args)
+			return runSync(dryRun, all, profile, private, pkgOnly, linkOnly, args)
 		},
 	}
 
@@ -37,18 +40,24 @@ func NewSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "Sync all profiles with AutoSync enabled")
 	cmd.Flags().StringVar(&profile, "profile", "", "Sync only this profile and its extends (overrides AutoSync)")
 	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
+	cmd.Flags().BoolVar(&pkgOnly, "pkg-only", false, "Sync only packages (skip links)")
+	cmd.Flags().BoolVar(&linkOnly, "link-only", false, "Sync only links (skip packages)")
+	cmd.Flags().BoolVar(&private, "private", false, "Clone a private repo: install git, gh, git-credential-manager and run gh auth login before cloning")
 
 	return cmd
 }
 
-func validateSyncFlags(all bool, profile string) error {
+func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool) error {
 	if all && profile != "" {
 		return fmt.Errorf("cannot use --all and --profile together")
+	}
+	if pkgOnly && linkOnly {
+		return fmt.Errorf("cannot use --pkg-only and --link-only together")
 	}
 	return nil
 }
 
-func runSync(dryRun, all bool, profileName string, args []string) error {
+func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, args []string) error {
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)
@@ -60,12 +69,15 @@ func runSync(dryRun, all bool, profileName string, args []string) error {
 		if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
 			ownerRepo = strings.TrimSpace(args[0])
 		} else {
-			ownerRepo, err = promptOwnerRepo()
+			ownerRepo, err = source.DefaultOwnerRepo()
 			if err != nil {
-				return err
+				ownerRepo, err = promptOwnerRepo()
+				if err != nil {
+					return err
+				}
 			}
 			if ownerRepo == "" {
-				return fmt.Errorf("owner/repo is required to clone (e.g. kkato1030/dotfiles)")
+				return fmt.Errorf("owner/repo is required to clone (e.g. kkato1030/dotal). Install and run 'gh auth login' to use default {account}/dotal")
 			}
 		}
 		owner, repo, err := source.ParseOwnerRepo(ownerRepo)
@@ -73,8 +85,17 @@ func runSync(dryRun, all bool, profileName string, args []string) error {
 			return err
 		}
 		if dryRun {
-			fmt.Printf("[dry-run] Would clone https://github.com/%s/%s into %s\n", owner, repo, configDir)
+			if usePrivate {
+				fmt.Printf("[dry-run] Would ensure git, gh, git-credential-manager and run gh auth login, then clone https://github.com/%s/%s into %s\n", owner, repo, configDir)
+			} else {
+				fmt.Printf("[dry-run] Would clone https://github.com/%s/%s into %s\n", owner, repo, configDir)
+			}
 			return nil
+		}
+		if usePrivate {
+			if err := source.EnsurePrivateCloneSetup(); err != nil {
+				return fmt.Errorf("private clone setup: %w", err)
+			}
 		}
 		fmt.Printf("Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir)
 		if err := source.Clone(configDir, owner, repo); err != nil {
@@ -82,101 +103,112 @@ func runSync(dryRun, all bool, profileName string, args []string) error {
 		}
 	}
 
-	// Resolve sync target profiles
-	mode := "default"
-	if profileName != "" {
-		mode = "profile"
-	} else if all {
-		mode = "all"
-	}
-	syncTargetNames, err := config.GetSyncTargetProfileNames(mode, profileName)
-	if err != nil {
-		return fmt.Errorf("sync target profiles: %w", err)
-	}
+	doPackages := !linkOnly
+	doLinks := !pkgOnly
 
-	syncTargetSet := make(map[string]bool)
-	for _, n := range syncTargetNames {
-		syncTargetSet[n] = true
+	// Resolve sync target profiles (only needed for package sync)
+	var syncTargetNames []string
+	var syncTargetSet map[string]bool
+	if doPackages {
+		mode := "default"
+		if profileName != "" {
+			mode = "profile"
+		} else if all {
+			mode = "all"
+		}
+		var err error
+		syncTargetNames, err = config.GetSyncTargetProfileNames(mode, profileName)
+		if err != nil {
+			return fmt.Errorf("sync target profiles: %w", err)
+		}
+		syncTargetSet = make(map[string]bool)
+		for _, n := range syncTargetNames {
+			syncTargetSet[n] = true
+		}
 	}
 
 	if dryRun {
-		fmt.Printf("[dry-run] Sync target profiles: %v\n", syncTargetNames)
-		packagesCfg, _ := config.LoadPackagesConfig()
-		var count int
-		for _, pkg := range packagesCfg.Packages {
-			if syncTargetSet[pkg.Profile] {
-				count++
+		if doPackages {
+			fmt.Printf("[dry-run] Sync target profiles: %v\n", syncTargetNames)
+			packagesCfg, _ := config.LoadPackagesConfig()
+			var count int
+			for _, pkg := range packagesCfg.Packages {
+				if syncTargetSet[pkg.Profile] {
+					count++
+				}
 			}
+			fmt.Printf("[dry-run] Would ensure providers and install %d package(s)\n", count)
 		}
-		fmt.Printf("[dry-run] Would ensure providers and install %d package(s)\n", count)
-		links, _ := config.ListLinks("", "")
-		fmt.Printf("[dry-run] Would apply %d link(s)\n", len(links))
+		if doLinks {
+			links, _ := config.ListLinks("", "")
+			fmt.Printf("[dry-run] Would apply %d link(s)\n", len(links))
+		}
 		return nil
 	}
 
-	// Ensure providers for packages in sync target
-	packagesCfg, err := config.LoadPackagesConfig()
-	if err != nil {
-		return fmt.Errorf("load packages: %w", err)
-	}
-	providersNeeded := make(map[string]bool)
-	for _, pkg := range packagesCfg.Packages {
-		if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
-			providersNeeded[pkg.Provider] = true
-		}
-	}
-	for name := range providersNeeded {
-		p := getProvider(name)
-		if p == nil {
-			continue
-		}
-		installed, err := p.CheckInstalled()
+	if doPackages {
+		packagesCfg, err := config.LoadPackagesConfig()
 		if err != nil {
-			return fmt.Errorf("check provider %s: %w", name, err)
+			return fmt.Errorf("load packages: %w", err)
 		}
-		if !installed {
-			fmt.Printf("Installing provider %s...\n", name)
-			if err := p.Install(); err != nil {
-				return fmt.Errorf("install provider %s: %w", name, err)
+		providersNeeded := make(map[string]bool)
+		for _, pkg := range packagesCfg.Packages {
+			if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
+				providersNeeded[pkg.Provider] = true
 			}
-			if err := p.SetupConfig(); err != nil {
-				return fmt.Errorf("setup provider %s: %w", name, err)
+		}
+		for name := range providersNeeded {
+			p := getProvider(name)
+			if p == nil {
+				continue
+			}
+			installed, err := p.CheckInstalled()
+			if err != nil {
+				return fmt.Errorf("check provider %s: %w", name, err)
+			}
+			if !installed {
+				fmt.Printf("Installing provider %s...\n", name)
+				if err := p.Install(); err != nil {
+					return fmt.Errorf("install provider %s: %w", name, err)
+				}
+				if err := p.SetupConfig(); err != nil {
+					return fmt.Errorf("setup provider %s: %w", name, err)
+				}
+			}
+		}
+		for _, pkg := range packagesCfg.Packages {
+			if !syncTargetSet[pkg.Profile] {
+				continue
+			}
+			p := getProvider(pkg.Provider)
+			if p == nil {
+				continue
+			}
+			installed, _ := p.CheckInstalled()
+			if !installed {
+				continue
+			}
+			fmt.Printf("Installing package %s (%s)...\n", pkg.Name, pkg.ID)
+			if err := p.InstallPackage(pkg.ID); err != nil {
+				return fmt.Errorf("install package %s: %w", pkg.Name, err)
 			}
 		}
 	}
 
-	// Install packages in sync target
-	for _, pkg := range packagesCfg.Packages {
-		if !syncTargetSet[pkg.Profile] {
-			continue
+	if doLinks {
+		linkDir, err := config.GetLinkDir()
+		if err != nil {
+			return fmt.Errorf("get link dir: %w", err)
 		}
-		p := getProvider(pkg.Provider)
-		if p == nil {
-			continue
+		entries, err := config.ListLinks("", "")
+		if err != nil {
+			return fmt.Errorf("list links: %w", err)
 		}
-		installed, _ := p.CheckInstalled()
-		if !installed {
-			continue
-		}
-		fmt.Printf("Installing package %s (%s)...\n", pkg.Name, pkg.ID)
-		if err := p.InstallPackage(pkg.ID); err != nil {
-			return fmt.Errorf("install package %s: %w", pkg.Name, err)
-		}
-	}
-
-	// Apply links
-	linkDir, err := config.GetLinkDir()
-	if err != nil {
-		return fmt.Errorf("get link dir: %w", err)
-	}
-	entries, err := config.ListLinks("", "")
-	if err != nil {
-		return fmt.Errorf("list links: %w", err)
-	}
-	for _, entry := range entries {
-		entryDir := filepath.Join(linkDir, entry.Name)
-		if err := config.EnsureLinkSymlink(&entry, entryDir); err != nil {
-			return fmt.Errorf("link %s: %w", entry.Name, err)
+		for _, entry := range entries {
+			entryDir := filepath.Join(linkDir, entry.Name)
+			if err := config.EnsureLinkSymlink(&entry, entryDir); err != nil {
+				return fmt.Errorf("link %s: %w", entry.Name, err)
+			}
 		}
 	}
 

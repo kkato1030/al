@@ -6,6 +6,24 @@ import (
 	"strings"
 )
 
+const defaultRepo = "dotal"
+
+// DefaultOwnerRepo returns the default owner/repo for sync when none is provided:
+// it uses the GitHub login from "gh api user" and returns "{login}/dotal".
+// Returns empty string and nil error if gh is not available or not authenticated.
+func DefaultOwnerRepo() (string, error) {
+	cmd := exec.Command("gh", "api", "user", "-q", ".login")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	login := strings.TrimSpace(string(out))
+	if login == "" {
+		return "", fmt.Errorf("gh api user returned empty login")
+	}
+	return login + "/" + defaultRepo, nil
+}
+
 // Clone clones a GitHub repository into dest.
 // owner and repo are the GitHub owner and repository name (e.g. "kkato1030", "dotfiles").
 // dest is the destination directory path (e.g. AL_HOME).

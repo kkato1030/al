@@ -103,3 +103,51 @@
 - [ ] （任意）`make build-release` でビルドし、`bin/al` で代表的なコマンドを手動確認した
 
 以上に従うことで、利用者への情報提供を継続し、開発時は Makefile を軸にした一貫した手順で作業できます。
+
+---
+
+## 8. 開発の標準フロー（jj + GitHub）
+
+本リポジトリは Jujutsu（jj）でバージョン管理する想定である。変更をコミットして PR まで出す一連の流れは以下を標準とする。jj の用語・詳細は `docs/jj-cheat-sheet.md` を参照。
+
+1. **変更を加える**  
+   コードやドキュメントを編集する。ワーキングコピー（@）に変更が載る。
+
+2. **change に説明を付ける**  
+   `jj describe -m "コミットメッセージ"` で現在の change（@）に説明を設定する。
+
+3. **change を確定する**  
+   `jj new` を実行する。@ が新しい空の change に移り、直前の change が確定した状態になる。
+
+4. **リモートに push する**  
+   `jj git push -c @-` を実行する。確定した change（@ の親）に対してブックマークが自動作成され、そのブランチがリモートに push される。
+
+5. **PR を作成する**  
+   `gh pr create --base main --head <push で作成されたブランチ名> --title "..." --body "..."` で PR を作成する。ブランチ名は push 時のメッセージで表示される（例: `push-<change_id>`）。
+
+6. **マージ後に取り込む**  
+   マージ後、`jj git fetch` でリモートの最新を取得する。main を進めたい場合は `jj edit main` や `jj bookmark move main -r origin/main` などで main を更新する。
+
+**補足**: 状態確認には `jj status`・`jj log -n 5`、取り消しには `jj undo` を利用する。
+
+---
+
+## 9. 開発フローで用いるツールの allowlist
+
+以下に挙げるツール・コマンドは、開発フロー（コード編集・ビルド・テスト・jj 操作・PR 作成・fetch）の文脈で **ユーザーに確認せずに実行してよい** ものとする。AI エージェントはこれらを必要に応じて実行してよい。
+
+**Cursor での設定**: ターミナルで確認なしに実行させるには次を利用する。
+- **ルール**: `.cursor/rules/development-allowlist.mdc`（alwaysApply）でエージェントに許可を伝える。
+- **ワークスペース**: `.vscode/settings.json` の `cursor.terminal.allowList` に許可コマンドの配列を記載済み。
+- **参照用**: `.cursor/allowlist.json` に同じコマンド一覧を保持。設定 UI に手動で追加する場合はここを参照。
+
+| 種別 | ツール／コマンド | 用途・備考 |
+|------|------------------|-------------|
+| ビルド・テスト | `make`（Makefile のターゲット） | `fmt`, `vet`, `lint`, `test`, `build`, `run`, `clean` 等（§2 参照）。Go 系はすべて make 経由とし、直接 `go` は使わない。足りなければ新規 Make ターゲットを検討する。 |
+| VCS（jj） | `jj` | `status`, `log`, `describe`, `new`, `edit`, `undo`, `git push`, `git fetch`, `bookmark` 等（§8・`docs/jj-cheat-sheet.md` 参照） |
+| GitHub | `gh` | `pr create`, `auth status`, `pr view`, `pr list` 等、PR 作成・状態確認 |
+| Git（参照） | `git` | `status`, `branch`, `log` 等、状態確認のための読み取り系 |
+| ウェブ検索 | （エージェント組み込み） | ドキュメント・API・技術情報の確認は確認せず実行してよい |
+| シェル | `cd`, 上記コマンドの実行 | リポジトリルートへの移動および上記ツールの起動 |
+
+**注意**: 上記以外のコマンド（例: システム設定変更・ネットワーク・パッケージインストール・任意のスクリプト）は、必要であればユーザーに確認してから実行すること。

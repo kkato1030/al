@@ -85,7 +85,7 @@ Profile に `review_days` を設定すると、その profile のパッケージ
 
 パッケージのインストール元。**brew**（Homebrew formula/cask）、**mas**（Mac App Store）、**manual**（登録のみ、インストールは行わない）。`al init` で brew が追加される。mas は `al provider add mas`。デフォルト provider は `al config set --default-provider` で変更可能。
 
-**brew tap**: `brew tap` で追加する tap はパッケージとは別に provider brew 側で管理する（`~/.al/brew-taps.json`）。`al list` には tap は出さない。`al add homebrew/cask-fonts` のように tap を指定すると brew-taps に登録される。`al provider prune` では、packages に `owner/repo/toolname` 形式のパッケージが1つもない tap を untap し、brew-taps から削除する。
+**brew tap**: `brew tap` で追加する tap はパッケージとは別に provider brew 側で管理する（`~/.al/brew-taps.json`）。`al list` には tap は出さない。`al add homebrew/cask-fonts` のように tap を指定すると brew-taps に登録される。tap の更新（Homebrew と全 tap の最新化）は `al provider upgrade` または `al upgrade` で行う（brew の場合は内部で `brew update` が実行される）。`al provider prune` では、packages に `owner/repo/toolname` 形式のパッケージが1つもない tap を untap し、brew-taps から削除する。
 
 ### link.d
 
@@ -181,7 +181,7 @@ al update
 |--------------|------|
 | `al provider add <名前>` | 登録（brew / mas など） |
 | `al provider list` | 一覧 |
-| `al provider upgrade` | 全 provider のアップグレード |
+| `al provider upgrade [provider-name]` | provider のアップグレード（未指定時は全 provider）。brew の場合は `brew update` により Homebrew と全 tap が更新される |
 | `al provider prune` | brew のみ: brew-taps に登録されている tap のうち、packages に `owner/repo/toolname` 形式のパッケージが1つもない tap を untap し、brew-taps からも削除。homebrew/core と homebrew/cask は対象外。`--dry-run` で確認、`-y` で確認スキップ |
 
 ### al package

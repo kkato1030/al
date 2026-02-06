@@ -10,8 +10,8 @@ import (
 
 // PackageConfig represents a package configuration
 type PackageConfig struct {
-	ID          string    `json:"id"`           // required: brew="{formula,cask,tap}:<package_name>", mas="<app_id>"
-	Name        string    `json:"name"`          // 表示用の名前（brewではidと同じ、masでは任意）
+	ID          string    `json:"id"`   // required: brew="{formula,cask,tap}:<package_name>", mas="<app_id>"
+	Name        string    `json:"name"` // 表示用の名前（brewではidと同じ、masでは任意）
 	Provider    string    `json:"provider"`
 	Profile     string    `json:"profile"`
 	Version     string    `json:"version,omitempty"`

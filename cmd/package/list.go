@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	profileLineChar   = "━"  // U+2501 BOX DRAWINGS HEAVY HORIZONTAL
+	profileLineChar   = "━"   // U+2501 BOX DRAWINGS HEAVY HORIZONTAL
 	profileLineLead   = "━━ " // leading "━━ " before profile name
 	profileLineTail   = " ━"  // " ━" after profile name before fill
-	maxProfileLineLen = 48   // cap line length so it doesn't stretch across wide terminals
+	maxProfileLineLen = 48    // cap line length so it doesn't stretch across wide terminals
 )
 
 // NewPackageListCmd creates the package list command

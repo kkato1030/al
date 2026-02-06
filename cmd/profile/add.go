@@ -539,4 +539,3 @@ func selectPackageDuplicationUI() (string, error) {
 
 	return model.GetSelected(), nil
 }
-

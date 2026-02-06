@@ -149,7 +149,7 @@ func runPackageUpgrade(packageName string) error {
 		for _, pkg := range matchingPackages {
 			fmt.Printf("  - %s (%s:%s) [profile: %s]\n", pkg.Name, pkg.Provider, pkg.ID, pkg.Profile)
 		}
-		fmt.Println("Upgrading all matching packages...\n")
+		fmt.Println("Upgrading all matching packages...")
 	}
 
 	// Upgrade each matching package

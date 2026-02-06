@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	bootstrapcmd "github.com/kkato1030/al/cmd/bootstrap"
 	configcmd "github.com/kkato1030/al/cmd/config"
 	linkcmd "github.com/kkato1030/al/cmd/link"
 	packagecmd "github.com/kkato1030/al/cmd/package"
@@ -53,6 +54,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(NewUpdateCmd())
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(NewActivateCmd())
+	rootCmd.AddCommand(bootstrapcmd.NewBootstrapCmd())
 	rootCmd.AddCommand(configcmd.NewConfigCmd())
 	rootCmd.AddCommand(linkcmd.NewLinkCmd())
 	rootCmd.AddCommand(provider.NewProviderCmd())

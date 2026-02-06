@@ -151,7 +151,6 @@ func NewPackageImportCmd() *cobra.Command {
 					continue
 				}
 
-
 				if install {
 					if e.Provider == "brew" && brewProv != nil {
 						if err := brewProv.InstallPackage(e.ID); err != nil {

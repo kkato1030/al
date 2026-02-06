@@ -244,7 +244,7 @@ func ApplyTemplate(template *ProfileTemplate, profileName string) ([]ProfileConf
 
 		// Build extends array
 		newExtends := make([]string, 0)
-		
+
 		// Add <default_profile> at the beginning if default_profile is set and not the same as the profile being created
 		if defaultProfile != "" {
 			// Parse the profile name to get profile_name part
@@ -252,7 +252,7 @@ func ApplyTemplate(template *ProfileTemplate, profileName string) ([]ProfileConf
 			if err != nil {
 				return nil, fmt.Errorf("error parsing profile name '%s': %w", newProfile.Name, err)
 			}
-			
+
 			// Only add if default_profile is different from the profile_name part
 			if defaultProfile != profileNamePart {
 				newExtends = append(newExtends, fmt.Sprintf("<default_profile>"))

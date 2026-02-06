@@ -56,6 +56,7 @@ eval "$(al activate bash)"  # bash
 | Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
 | link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
 | shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al package shell show/set/edit/enable/disable` |
+| bootstrap | 新規 PC セットアップ用のワンオフシェルスクリプト（`~/.al/bootstrap/script.sh`） | `al bootstrap add/edit/remove/show` |
 | sync / backup | GitHub との clone 適用・push | `al sync [owner/repo]`, `al backup` |
 | Brewfile 取り込み | 既存 Brewfile を al の管理下に登録 | `al import Brewfile --prf <profile>` |
 | 設定 | デフォルト profile / provider / stage、バックアップ先、エイリアス | `al config set/show`, `al config alias list` |
@@ -87,13 +88,17 @@ Profile に `promote_to` を設定すると、パッケージを trial から st
 
 パッケージごとのシェル設定を `~/.al/shell.d/<パッケージ識別子>/` に置き、`al activate` の出力でまとめて source する。読み込み順は after で制御。有効/無効は `al package shell enable/disable`。
 
+### bootstrap
+
+新規 PC のセットアップで、al の他の機能では自動化できないワンオフのシェル実行を行うためのスクリプト。`~/.al/bootstrap/script.sh` に 1 本のスクリプトが保存される。`al bootstrap add` で作成、`edit` で編集、`remove` で削除、`show` で内容表示。sync / backup で他マシンと共有可能。
+
 ### extends
 
 Profile が別の profile を継承する指定。例: `work` が `core.stable` を extends する場合、`al sync --profile work` では work と core.stable のパッケージが適用される。
 
 ### sync と backup
 
-- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。
+- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。
 - **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。
 
 ---
@@ -134,7 +139,7 @@ al update
 |----------|------|
 | `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
 | `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する |
-| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用 |
+| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行 |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
 | `al update` | al 本体を最新版に更新 |
 | `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |
@@ -193,6 +198,17 @@ al update
 | `al link list` | 一覧 |
 | `al link remove <名前>` | 削除（オプションで実体をユーザパスへ copy-back） |
 | `al link edit <名前>` | ユーザパスなどの編集 |
+
+### al bootstrap
+
+新規 PC のセットアップで、al の他の機能では自動化できないワンオフのシェル実行用。スクリプトは `~/.al/bootstrap/script.sh` に保存される。
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al bootstrap add` | スクリプトを作成（未作成時のみ初期内容で作成） |
+| `al bootstrap edit` | EDITOR でスクリプトを編集（未作成時は add と同様に作成してから開く） |
+| `al bootstrap remove` | スクリプトを削除 |
+| `al bootstrap show` | スクリプト内容を表示 |
 
 ---
 

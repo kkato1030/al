@@ -171,6 +171,10 @@ func NewPackageImportCmd() *cobra.Command {
 					Profile:     finalProfile,
 					InstalledAt: time.Now(),
 				}
+				if days, hasReview, _ := config.GetReviewDays(finalProfile); hasReview && days > 0 {
+					reviewBy := time.Now().AddDate(0, 0, days)
+					pkg.ReviewBy = &reviewBy
+				}
 				if overwrite {
 					if err := config.AddOrUpdatePackage(pkg); err != nil {
 						return fmt.Errorf("add or update package %s: %w", e.ID, err)

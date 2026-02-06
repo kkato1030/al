@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
@@ -291,6 +292,10 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 		Profile:     profile,
 		Version:     version,
 		Description: description,
+	}
+	if days, hasReview, _ := config.GetReviewDays(profile); hasReview && days > 0 {
+		reviewBy := time.Now().AddDate(0, 0, days)
+		pkg.ReviewBy = &reviewBy
 	}
 
 	// Add or update package in config

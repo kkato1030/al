@@ -154,6 +154,11 @@ func runPackageRemove(packageName, providerName, profile string, keepShell, keep
 	return nil
 }
 
+// RunPackageRemoveFromConfig removes a package by config (used by al review).
+func RunPackageRemoveFromConfig(pkg config.PackageConfig, keepShell, keepLink bool) error {
+	return runPackageRemove(pkg.Name, pkg.Provider, pkg.Profile, keepShell, keepLink)
+}
+
 func runPackageRemoveInteractive(packageName, provider, profile string, keepShell, keepLink bool) error {
 	// Get package name
 	fmt.Printf("Package name: %s\n", packageName)

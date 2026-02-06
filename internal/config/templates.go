@@ -19,6 +19,8 @@ type TemplatesConfig struct {
 	Templates []ProfileTemplate `json:"templates"`
 }
 
+func intPtr(n int) *int { return &n }
+
 // GetDefaultTemplates returns the default templates embedded in the code
 func GetDefaultTemplates() []ProfileTemplate {
 	return []ProfileTemplate{
@@ -39,10 +41,11 @@ func GetDefaultTemplates() []ProfileTemplate {
 					Stage: "stable",
 				},
 				{
-					Name:      "<profile_name>.trial",
-					Stage:     "trial",
-					Extends:   []string{"<profile_name>"},
-					PromoteTo: "<profile_name>",
+					Name:       "<profile_name>.trial",
+					Stage:      "trial",
+					Extends:    []string{"<profile_name>"},
+					PromoteTo:  "<profile_name>",
+					ReviewDays: intPtr(30),
 				},
 			},
 		},

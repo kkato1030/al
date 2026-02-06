@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/spf13/cobra"
@@ -20,6 +21,15 @@ func NewActivateCmd() *cobra.Command {
 }
 
 func runActivate(cmd *cobra.Command, args []string) error {
+	// Show overdue packages notice on stderr (so eval still gets clean script on stdout)
+	if overdue, err := config.GetOverduePackages(); err == nil && len(overdue) > 0 {
+		fmt.Fprintln(os.Stderr, "Review overdue: the following packages need a decision (remove / promote / postpone).")
+		for _, pkg := range overdue {
+			fmt.Fprintf(os.Stderr, "  - %s (profile: %s, provider: %s)\n", pkg.Name, pkg.Profile, pkg.Provider)
+		}
+		fmt.Fprintln(os.Stderr, "Run 'al review' to resolve.")
+	}
+
 	shell := args[0]
 	ext, err := shellExt(shell)
 	if err != nil {

@@ -18,6 +18,8 @@ type ProfileConfig struct {
 	PromoteTo          string   `json:"promote_to,omitempty"`
 	PackageDuplication string   `json:"package_duplication,omitempty"`
 	AutoSync           *bool    `json:"auto_sync,omitempty"` // nil/true = include in "al sync" (default), false = exclude unless --profile
+	// ReviewDays is the number of days after which packages must be reviewed. nil or 0 = not a review target. Set to e.g. 30 to require review every 30 days (based on package reviewed_at).
+	ReviewDays *int `json:"review_days,omitempty"`
 }
 
 // ProfilesConfig represents the collection of profile configurations
@@ -253,6 +255,19 @@ func ResolveProfileWithExtends(name string) ([]string, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// GetReviewDays returns the review period in days for the profile, and whether review is required.
+// No review_days (nil or <= 0) → not a review target. Has review_days → packages use reviewed_at + review_days for due date.
+func GetReviewDays(profileName string) (days int, hasReview bool, err error) {
+	p, err := GetProfile(profileName)
+	if err != nil || p == nil {
+		return 0, false, err
+	}
+	if p.ReviewDays == nil || *p.ReviewDays <= 0 {
+		return 0, false, nil
+	}
+	return *p.ReviewDays, true, nil
 }
 
 // GetSyncTargetProfileNames returns profile names to sync based on mode.

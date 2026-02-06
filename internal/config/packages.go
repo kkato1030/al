@@ -17,6 +17,8 @@ type PackageConfig struct {
 	Version     string    `json:"version,omitempty"`
 	InstalledAt time.Time `json:"installed_at"`
 	Description string    `json:"description,omitempty"`
+	// ReviewBy is the deadline for reviewing this package. Used with profile review_days. nil or past = review target.
+	ReviewBy *time.Time `json:"review_by,omitempty"`
 }
 
 // PackagesConfig represents the collection of package configurations
@@ -178,4 +180,53 @@ func GetPackagesConfigPath() (string, error) {
 	}
 
 	return filepath.Join(configDir, "packages.json"), nil
+}
+
+// GetOverduePackages returns packages that are past their review deadline.
+// A package is overdue if its profile has review_days and either:
+// - the package has no review_by set, or
+// - review_by is in the past.
+func GetOverduePackages() ([]PackageConfig, error) {
+	cfg, err := LoadPackagesConfig()
+	if err != nil {
+		return nil, err
+	}
+	var out []PackageConfig
+	now := time.Now()
+	for _, pkg := range cfg.Packages {
+		_, hasReview, err := GetReviewDays(pkg.Profile)
+		if err != nil || !hasReview {
+			continue
+		}
+		overdue := false
+		if pkg.ReviewBy == nil {
+			overdue = true
+		} else if !now.Before(*pkg.ReviewBy) {
+			overdue = true
+		}
+		if overdue {
+			out = append(out, pkg)
+		}
+	}
+	return out, nil
+}
+
+// SetPackageReviewBy sets the review_by (deadline) field of a package (e.g. after postpone).
+func SetPackageReviewBy(id, provider, profile string, reviewBy time.Time) error {
+	cfg, err := LoadPackagesConfig()
+	if err != nil {
+		return err
+	}
+	found := false
+	for i := range cfg.Packages {
+		if cfg.Packages[i].ID == id && cfg.Packages[i].Provider == provider && cfg.Packages[i].Profile == profile {
+			cfg.Packages[i].ReviewBy = &reviewBy
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("package with id '%s' with provider '%s' in profile '%s' not found", id, provider, profile)
+	}
+	return SavePackagesConfig(cfg)
 }

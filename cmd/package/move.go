@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/spf13/cobra"
@@ -153,6 +154,10 @@ func movePackage(pkg config.PackageConfig, toProfile string) error {
 		Description: pkg.Description,
 		InstalledAt: pkg.InstalledAt,
 	}
+	if days, hasReview, _ := config.GetReviewDays(toProfile); hasReview && days > 0 {
+		reviewBy := time.Now().AddDate(0, 0, days)
+		newPkg.ReviewBy = &reviewBy
+	}
 
 	if err := config.AddOrUpdatePackage(newPkg); err != nil {
 		return fmt.Errorf("error adding package to target profile: %w", err)
@@ -160,4 +165,9 @@ func movePackage(pkg config.PackageConfig, toProfile string) error {
 
 	fmt.Printf("Package '%s' (ID: %s) has been successfully moved from profile '%s' to profile '%s'\n", pkg.Name, pkg.ID, pkg.Profile, toProfile)
 	return nil
+}
+
+// RunPackageMoveFromConfig moves a package to another profile (used by al review promote).
+func RunPackageMoveFromConfig(pkg config.PackageConfig, toProfile string) error {
+	return movePackage(pkg, toProfile)
 }

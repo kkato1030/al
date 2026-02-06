@@ -53,6 +53,7 @@ eval "$(al activate bash)"  # bash
 | 機能 | 説明 | 主なコマンド |
 |------|------|----------------|
 | パッケージ管理 | Homebrew / mas の追加・削除・昇格・一覧・アップグレード | `al add`, `al remove`, `al promote`, `al list`, `al upgrade` |
+| trial レビュー | trial のレビュー期限切れパッケージの対話的解決（remove / promote / postpone） | `al review` |
 | Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
 | link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
 | shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al package shell show/set/edit/enable/disable` |
@@ -75,6 +76,10 @@ eval "$(al activate bash)"  # bash
 ### promote（昇格）
 
 Profile に `promote_to` を設定すると、パッケージを trial から stable などへ移動できる。`al package move <name> --to <profile>` またはエイリアス `al promote <name>`（パッケージが属する profile の promote_to へ移動）。同一パッケージ（同一 ID・provider）が trial と stable の両方に同時に存在することはない。
+
+### trial のレビュー期限（review）
+
+Profile に `review_days` を設定すると、その profile のパッケージがレビュー対象になる。`review_days` が無い profile はレビュー対象外。パッケージの `review_by`（レビュー期限日時）が無いか期限を過ぎていれば「期限切れ」として扱う。`al activate` 実行時に期限切れがあると stderr に一覧と「`al review` で解決」の案内を表示する。`al review` では各パッケージについて **remove**（使わなかったので削除）、**promote**（stable へ昇格）、**postpone**（同じ日数だけ延期＝`review_by` を今＋review_days に更新）のいずれかを選べる。postpone 時は「本当に？ それが必要なの？」の確認プロンプトが出る。
 
 ### Provider
 
@@ -138,7 +143,8 @@ al update
 | コマンド | 説明 |
 |----------|------|
 | `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
-| `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する |
+| `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
+| `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
 | `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行 |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
 | `al update` | al 本体を最新版に更新 |

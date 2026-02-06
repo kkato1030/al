@@ -155,7 +155,7 @@ func GetDefaultAliases() map[string]string {
 	return map[string]string{
 		"promote":  "package move {args} --to package.promote_to",
 		"add":      "package add",
-		"remove":  "package remove",
+		"remove":   "package remove",
 		"list":     "package list",
 		"register": "package add --provider manual",
 		"import":   "package import {args}",

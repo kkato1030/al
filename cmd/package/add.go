@@ -75,7 +75,7 @@ func NewPackageAddCmd() *cobra.Command {
 			if profileConfig == nil {
 				return fmt.Errorf("profile '%s' does not exist", finalProfile)
 			}
-			
+
 			// Update finalProfile to the actual profile name found
 			finalProfile = profileConfig.Name
 
@@ -142,7 +142,7 @@ func findProfileWithFallback(fullProfileName, stageFlag string) (*config.Profile
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Try to find profile with just profile_name (no stage)
 		profileConfig, err = config.GetProfile(profileName)
 		if err != nil {
@@ -184,7 +184,7 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 	if profileConfig == nil {
 		return fmt.Errorf("profile '%s' does not exist", profile)
 	}
-	
+
 	// Update profile to the actual profile name found
 	profile = profileConfig.Name
 
@@ -362,7 +362,7 @@ func runPackageAddInteractive(packageName, provider, profile, stage, version, de
 	if err != nil {
 		return fmt.Errorf("error building profile name: %w", err)
 	}
-	
+
 	// Verify profile exists with fallback
 	profileConfig, err := findProfileWithFallback(finalProfile, stage)
 	if err != nil {
@@ -371,7 +371,7 @@ func runPackageAddInteractive(packageName, provider, profile, stage, version, de
 	if profileConfig == nil {
 		return fmt.Errorf("profile '%s' does not exist", finalProfile)
 	}
-	
+
 	// Update profile to the actual profile name found
 	profile = profileConfig.Name
 

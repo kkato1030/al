@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -143,6 +144,10 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			links, _ := config.ListLinks("", "")
 			fmt.Printf("[dry-run] Would apply %d link(s)\n", len(links))
 		}
+		exists, _ := config.BootstrapScriptExists()
+		if exists {
+			fmt.Println("[dry-run] Would run bootstrap script at the end")
+		}
 		return nil
 	}
 
@@ -209,6 +214,31 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			if err := config.EnsureLinkSymlink(&entry, entryDir); err != nil {
 				return fmt.Errorf("link %s: %w", entry.Name, err)
 			}
+		}
+	}
+
+	// Run bootstrap script if present
+	exists, err := config.BootstrapScriptExists()
+	if err != nil {
+		return fmt.Errorf("bootstrap check: %w", err)
+	}
+	if exists {
+		scriptPath, err := config.GetBootstrapScriptPath()
+		if err != nil {
+			return fmt.Errorf("bootstrap path: %w", err)
+		}
+		bootstrapDir, err := config.GetBootstrapDir()
+		if err != nil {
+			return fmt.Errorf("bootstrap dir: %w", err)
+		}
+		fmt.Println("\nRunning bootstrap script...")
+		cmd := exec.Command(scriptPath)
+		cmd.Dir = bootstrapDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("bootstrap script: %w", err)
 		}
 	}
 

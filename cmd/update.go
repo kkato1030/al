@@ -25,8 +25,8 @@ const (
 )
 
 type Release struct {
-	TagName string `json:"tag_name"`
-	Name    string `json:"name"`
+	TagName string  `json:"tag_name"`
+	Name    string  `json:"name"`
 	Assets  []Asset `json:"assets"`
 }
 

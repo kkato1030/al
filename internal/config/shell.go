@@ -14,8 +14,8 @@ const shellManifestFilename = ".manifest.json"
 // ShellManifest represents the manifest for a package's shell.d directory.
 // It holds load order (after) and whether this package's shell is enabled for `al activate`.
 type ShellManifest struct {
-	After   string `json:"after,omitempty"`   // package dir name that this should load after
-	Enabled bool   `json:"enabled"`           // whether to source in `al activate`
+	After   string `json:"after,omitempty"` // package dir name that this should load after
+	Enabled bool   `json:"enabled"`         // whether to source in `al activate`
 }
 
 // GetShellDir returns the path to ~/.al/shell.d/

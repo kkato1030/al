@@ -23,15 +23,15 @@ const (
 
 // LinkManifest represents the manifest for a link.d entry.
 type LinkManifest struct {
-	UserPath         string   `json:"user_path"`                   // absolute path (symlink location)
-	Type             LinkType `json:"type"`                        // file or dir
-	PackageID        string   `json:"package_id,omitempty"`         // optional package association
-	PackageProvider  string   `json:"package_provider,omitempty"` // optional package association
+	UserPath        string   `json:"user_path"`                  // absolute path (symlink location)
+	Type            LinkType `json:"type"`                       // file or dir
+	PackageID       string   `json:"package_id,omitempty"`       // optional package association
+	PackageProvider string   `json:"package_provider,omitempty"` // optional package association
 }
 
 // LinkEntry represents a link.d entry (manifest + name).
 type LinkEntry struct {
-	Name     string        // directory name under link.d (user-given name)
+	Name     string // directory name under link.d (user-given name)
 	Manifest *LinkManifest
 }
 

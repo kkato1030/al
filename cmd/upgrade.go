@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	providercmd "github.com/kkato1030/al/cmd/provider"
 	packagecmd "github.com/kkato1030/al/cmd/package"
+	providercmd "github.com/kkato1030/al/cmd/provider"
 	"github.com/spf13/cobra"
 )
 

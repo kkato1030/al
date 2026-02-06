@@ -140,12 +140,12 @@ func NewOrderedMultiSelectModel(items []config.ProfileConfig, title, excludeName
 	}
 
 	return &OrderedMultiSelectModel{
-		items:       filtered,
-		selected:    make(map[int]int),
-		nextOrder:   1,
-		cursor:      0,
-		title:       title,
-		excludeName: excludeName,
+		items:        filtered,
+		selected:     make(map[int]int),
+		nextOrder:    1,
+		cursor:       0,
+		title:        title,
+		excludeName:  excludeName,
 		selectedKeys: []int{},
 	}
 }

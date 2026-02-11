@@ -41,6 +41,150 @@ func TestAddPackage_GetOverduePackages(t *testing.T) {
 	}
 }
 
+func TestGetOverduePackages_PastDate(t *testing.T) {
+	dir := t.TempDir()
+	restore := setEnv("AL_HOME", dir)
+	defer restore()
+
+	if err := EnsureConfigDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile with review_days
+	days30 := 30
+	if err := SaveProfilesConfig(&ProfilesConfig{
+		Profiles: []ProfileConfig{{Name: "reviewed", ReviewDays: &days30}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add package with ReviewBy set to past date (should be overdue)
+	pastDate := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	pkg := PackageConfig{
+		ID: "formula:nodejs", Name: "nodejs", Provider: "brew", Profile: "reviewed",
+		InstalledAt: time.Now(),
+		ReviewBy:    &pastDate,
+	}
+	if err := AddPackage(pkg); err != nil {
+		t.Fatal(err)
+	}
+
+	overdue, err := GetOverduePackages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overdue) != 1 || overdue[0].ID != "formula:nodejs" {
+		t.Errorf("GetOverduePackages() with past ReviewBy = %v, expected 1 package", overdue)
+	}
+}
+
+func TestGetOverduePackages_NilReviewBy(t *testing.T) {
+	dir := t.TempDir()
+	restore := setEnv("AL_HOME", dir)
+	defer restore()
+
+	if err := EnsureConfigDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile with review_days
+	days30 := 30
+	if err := SaveProfilesConfig(&ProfilesConfig{
+		Profiles: []ProfileConfig{{Name: "reviewed", ReviewDays: &days30}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add package with nil ReviewBy (should be overdue)
+	pkg := PackageConfig{
+		ID: "formula:python", Name: "python", Provider: "brew", Profile: "reviewed",
+		InstalledAt: time.Now(),
+		ReviewBy:    nil,
+	}
+	if err := AddPackage(pkg); err != nil {
+		t.Fatal(err)
+	}
+
+	overdue, err := GetOverduePackages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overdue) != 1 || overdue[0].ID != "formula:python" {
+		t.Errorf("GetOverduePackages() with nil ReviewBy = %v, expected 1 package", overdue)
+	}
+}
+
+func TestGetOverduePackages_ExplicitReviewByWithoutProfileReviewDays(t *testing.T) {
+	dir := t.TempDir()
+	restore := setEnv("AL_HOME", dir)
+	defer restore()
+
+	if err := EnsureConfigDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile WITHOUT review_days
+	if err := SaveProfilesConfig(&ProfilesConfig{
+		Profiles: []ProfileConfig{{Name: "stable"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add package with explicit past ReviewBy (should be overdue even though profile has no review_days)
+	pastDate := time.Date(2026, 2, 8, 0, 0, 0, 0, time.UTC)
+	pkg := PackageConfig{
+		ID: "formula:golang", Name: "golang", Provider: "brew", Profile: "stable",
+		InstalledAt: time.Now(),
+		ReviewBy:    &pastDate,
+	}
+	if err := AddPackage(pkg); err != nil {
+		t.Fatal(err)
+	}
+
+	overdue, err := GetOverduePackages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overdue) != 1 || overdue[0].ID != "formula:golang" {
+		t.Errorf("GetOverduePackages() with explicit past ReviewBy but no profile review_days = %v, expected 1 package", overdue)
+	}
+}
+
+func TestGetOverduePackages_NoReviewByNoProfileReviewDays(t *testing.T) {
+	dir := t.TempDir()
+	restore := setEnv("AL_HOME", dir)
+	defer restore()
+
+	if err := EnsureConfigDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile WITHOUT review_days
+	if err := SaveProfilesConfig(&ProfilesConfig{
+		Profiles: []ProfileConfig{{Name: "stable"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add package without ReviewBy and profile has no review_days (should NOT be overdue)
+	pkg := PackageConfig{
+		ID: "formula:vim", Name: "vim", Provider: "brew", Profile: "stable",
+		InstalledAt: time.Now(),
+		ReviewBy:    nil,
+	}
+	if err := AddPackage(pkg); err != nil {
+		t.Fatal(err)
+	}
+
+	overdue, err := GetOverduePackages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overdue) != 0 {
+		t.Errorf("GetOverduePackages() with no ReviewBy and no profile review_days = %v, expected 0 packages", overdue)
+	}
+}
+
 func TestAddPackage_DuplicateError(t *testing.T) {
 	dir := t.TempDir()
 	restore := setEnv("AL_HOME", dir)

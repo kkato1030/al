@@ -183,9 +183,9 @@ func GetPackagesConfigPath() (string, error) {
 }
 
 // GetOverduePackages returns packages that are past their review deadline.
-// A package is overdue if its profile has review_days and either:
-// - the package has no review_by set, or
-// - review_by is in the past.
+// A package is overdue if:
+// - Its profile has review_days and the package has no review_by set, OR
+// - The package has an explicit review_by that is in the past (regardless of profile's review_days).
 func GetOverduePackages() ([]PackageConfig, error) {
 	cfg, err := LoadPackagesConfig()
 	if err != nil {
@@ -195,15 +195,23 @@ func GetOverduePackages() ([]PackageConfig, error) {
 	now := time.Now()
 	for _, pkg := range cfg.Packages {
 		_, hasReview, err := GetReviewDays(pkg.Profile)
-		if err != nil || !hasReview {
+		if err != nil {
 			continue
 		}
+		
 		overdue := false
 		if pkg.ReviewBy == nil {
-			overdue = true
-		} else if !now.Before(*pkg.ReviewBy) {
-			overdue = true
+			// Package has no review_by: only overdue if profile has review_days
+			if hasReview {
+				overdue = true
+			}
+		} else {
+			// Package has explicit review_by: overdue if it's in the past
+			if !now.Before(*pkg.ReviewBy) {
+				overdue = true
+			}
 		}
+		
 		if overdue {
 			out = append(out, pkg)
 		}

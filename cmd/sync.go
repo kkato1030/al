@@ -157,9 +157,14 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			return fmt.Errorf("load packages: %w", err)
 		}
 		var providersNeeded []string
+		var manualPackages []config.PackageConfig
 		for _, pkg := range packagesCfg.Packages {
-			if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
-				providersNeeded = append(providersNeeded, pkg.Provider)
+			if syncTargetSet[pkg.Profile] {
+				if pkg.Provider != "manual" {
+					providersNeeded = append(providersNeeded, pkg.Provider)
+				} else {
+					manualPackages = append(manualPackages, pkg)
+				}
 			}
 		}
 		orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
@@ -201,6 +206,16 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			if err := p.InstallPackage(pkg.ID); err != nil {
 				return fmt.Errorf("install package %s: %w", pkg.Name, err)
 			}
+		}
+		// Display warning for manual packages
+		if len(manualPackages) > 0 {
+			fmt.Fprintln(os.Stderr, "\n⚠️  Manual packages detected:")
+			fmt.Fprintln(os.Stderr, "The following packages are tracked as manually installed.")
+			fmt.Fprintln(os.Stderr, "Please ensure they are installed on this system:")
+			for _, pkg := range manualPackages {
+				fmt.Fprintf(os.Stderr, "  - %s (ID: %s, Profile: %s)\n", pkg.Name, pkg.ID, pkg.Profile)
+			}
+			fmt.Fprintln(os.Stderr)
 		}
 	}
 

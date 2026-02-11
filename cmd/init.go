@@ -14,7 +14,7 @@ func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize al with standard configuration",
-		Long:  "Initialize al for first-time users. Sets up standard profile (core with trial stage), provider (brew), and default settings.",
+		Long:  "Initialize al for first-time users. Sets up stable-trial profiles (core and core.trial), provider (brew), and default settings.",
 		Args:  cobra.NoArgs,
 		RunE:  runInit,
 	}
@@ -27,16 +27,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Add profile: core (stable-trial) -> profile "core" with stage "trial"
-	coreProfile := config.ProfileConfig{
-		Name:               "core",
-		Stage:              "trial",
-		PackageDuplication: "warn",
+	// Get stable-trial template
+	template, err := config.GetTemplate("stable-trial")
+	if err != nil {
+		return fmt.Errorf("failed to get stable-trial template: %w", err)
 	}
-	if err := config.AddOrUpdateProfile(coreProfile); err != nil {
-		return fmt.Errorf("failed to add profile: %w", err)
+
+	// Apply template to create core and core.trial profiles
+	profiles, err := config.ApplyTemplate(template, "core")
+	if err != nil {
+		return fmt.Errorf("failed to apply stable-trial template: %w", err)
 	}
-	fmt.Println("Profile 'core' (stage: trial) has been set up")
+
+	// Save each profile
+	for _, profile := range profiles {
+		// Set default package_duplication if not set
+		if profile.PackageDuplication == "" {
+			profile.PackageDuplication = "warn"
+		}
+
+		if err := config.AddOrUpdateProfile(profile); err != nil {
+			return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
+		}
+		fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+	}
 
 	// Add provider: brew
 	brewProvider := provider.NewBrewProvider()
@@ -58,14 +72,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Set default_profile, default_provider, default_stage
 	appConfig := &config.AppConfig{
-		DefaultProfile:  "core",
+		DefaultProfile:  "core.trial",
 		DefaultProvider: "brew",
 		DefaultStage:    "trial",
 	}
 	if err := config.SaveAppConfig(appConfig); err != nil {
 		return fmt.Errorf("failed to save app config: %w", err)
 	}
-	fmt.Println("Default settings: profile=core, provider=brew, stage=trial")
+	fmt.Println("Default settings: profile=core.trial, provider=brew, stage=trial")
 
 	fmt.Println("\nInitialization complete. You can start using al with 'al package add'.")
 	return nil

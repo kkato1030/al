@@ -299,3 +299,68 @@ func (p *MasProvider) SearchPackage(query string) ([]SearchResult, error) {
 
 	return results, nil
 }
+
+// IsPackageInstalled checks if a mas package is installed
+func (p *MasProvider) IsPackageInstalled(packageID string) (bool, error) {
+	// Check if mas is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return false, fmt.Errorf("failed to check mas installation: %w", err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	// Run mas list to get installed apps
+	cmd := exec.Command("mas", "list")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to list installed apps: %w", err)
+	}
+
+	// Check if packageID is in the output
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), packageID+" ") || strings.HasPrefix(strings.TrimSpace(line), packageID+"\t") {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// IsPackageUpgradable checks if a mas package has an available upgrade
+func (p *MasProvider) IsPackageUpgradable(packageID string) (bool, error) {
+	// Check if mas is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return false, fmt.Errorf("failed to check mas installation: %w", err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	// First check if package is installed
+	pkgInstalled, err := p.IsPackageInstalled(packageID)
+	if err != nil || !pkgInstalled {
+		return false, err
+	}
+
+	// Run mas outdated to get apps with available updates
+	cmd := exec.Command("mas", "outdated")
+	output, err := cmd.Output()
+	if err != nil {
+		// If command fails, assume not upgradable
+		return false, nil
+	}
+
+	// Check if packageID is in the outdated list
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), packageID+" ") || strings.HasPrefix(strings.TrimSpace(line), packageID+"\t") {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}

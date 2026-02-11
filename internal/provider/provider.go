@@ -35,4 +35,10 @@ type Provider interface {
 
 	// SearchPackage searches for packages matching the query
 	SearchPackage(query string) ([]SearchResult, error)
+
+	// IsPackageInstalled checks if a package is installed
+	IsPackageInstalled(packageID string) (bool, error)
+
+	// IsPackageUpgradable checks if a package has an available upgrade
+	IsPackageUpgradable(packageID string) (bool, error)
 }

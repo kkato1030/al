@@ -384,3 +384,80 @@ func (p *BrewProvider) SearchPackage(query string) ([]SearchResult, error) {
 
 	return results, nil
 }
+
+// IsPackageInstalled checks if a brew package is installed
+func (p *BrewProvider) IsPackageInstalled(packageID string) (bool, error) {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return false, fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	// Parse package ID
+	pkgType, pkgName, err := p.parsePackageID(packageID)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
+	// Check if package is installed
+	var cmd *exec.Cmd
+	if pkgType == "cask" {
+		cmd = exec.Command("brew", "list", "--cask", pkgName)
+	} else if pkgType == "tap" {
+		cmd = exec.Command("brew", "tap-info", pkgName)
+	} else {
+		cmd = exec.Command("brew", "list", pkgName)
+	}
+
+	err = cmd.Run()
+	return err == nil, nil
+}
+
+// IsPackageUpgradable checks if a brew package has an available upgrade
+func (p *BrewProvider) IsPackageUpgradable(packageID string) (bool, error) {
+	// Check if brew is installed
+	installed, err := p.CheckInstalled()
+	if err != nil {
+		return false, fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	// First check if package is installed
+	pkgInstalled, err := p.IsPackageInstalled(packageID)
+	if err != nil || !pkgInstalled {
+		return false, err
+	}
+
+	// Parse package ID
+	pkgType, pkgName, err := p.parsePackageID(packageID)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
+	// Taps don't have upgrades
+	if pkgType == "tap" {
+		return false, nil
+	}
+
+	// Check if package has outdated version
+	var cmd *exec.Cmd
+	if pkgType == "cask" {
+		cmd = exec.Command("brew", "outdated", "--cask", pkgName)
+	} else {
+		cmd = exec.Command("brew", "outdated", pkgName)
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		// If command fails, assume not upgradable
+		return false, nil
+	}
+
+	// If output contains the package name, it's upgradable
+	return strings.Contains(string(output), pkgName), nil
+}

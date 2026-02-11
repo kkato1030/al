@@ -18,6 +18,7 @@ import (
 // NewSyncCmd creates the sync command
 func NewSyncCmd() *cobra.Command {
 	var dryRun bool
+	var plan bool
 	var all bool
 	var profile string
 	var private bool
@@ -27,17 +28,20 @@ func NewSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [owner/repo]",
 		Short: "Sync al environment: clone ~/.al if needed, then apply providers, packages, and links",
-		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning.",
+		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly); err != nil {
 				return err
 			}
-			return runSync(dryRun, all, profile, private, pkgOnly, linkOnly, args)
+			// --plan takes precedence over --dry-run
+			isPlanMode := plan || dryRun
+			return runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args)
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
+	cmd.Flags().BoolVar(&plan, "plan", false, "Preview what would be done without making changes")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes (alias for --plan)")
 	cmd.Flags().BoolVar(&all, "all", false, "Sync all profiles with AutoSync enabled")
 	cmd.Flags().StringVar(&profile, "profile", "", "Sync only this profile and its extends (overrides AutoSync)")
 	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
@@ -130,24 +134,118 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 
 	if dryRun {
 		if doPackages {
-			fmt.Printf("[dry-run] Sync target profiles: %v\n", syncTargetNames)
-			packagesCfg, _ := config.LoadPackagesConfig()
-			var count int
+			fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+			packagesCfg, err := config.LoadPackagesConfig()
+			if err != nil {
+				return fmt.Errorf("load packages: %w", err)
+			}
+
+			// Track packages by status
+			var toInstall []config.PackageConfig
+			var toUpgrade []config.PackageConfig
+			var manualPackages []config.PackageConfig
+
 			for _, pkg := range packagesCfg.Packages {
-				if syncTargetSet[pkg.Profile] {
-					count++
+				if !syncTargetSet[pkg.Profile] {
+					continue
+				}
+
+				if pkg.Provider == "manual" {
+					manualPackages = append(manualPackages, pkg)
+					continue
+				}
+
+				p := getProvider(pkg.Provider)
+				if p == nil {
+					continue
+				}
+
+				// Check if provider is installed
+				providerInstalled, _ := p.CheckInstalled()
+				if !providerInstalled {
+					toInstall = append(toInstall, pkg)
+					continue
+				}
+
+				// Check package status
+				pkgInstalled, err := p.IsPackageInstalled(pkg.ID)
+				if err != nil {
+					// If we can't check, assume it needs install
+					toInstall = append(toInstall, pkg)
+					continue
+				}
+
+				if !pkgInstalled {
+					toInstall = append(toInstall, pkg)
+				} else {
+					// Check if upgradable
+					upgradable, err := p.IsPackageUpgradable(pkg.ID)
+					if err == nil && upgradable {
+						toUpgrade = append(toUpgrade, pkg)
+					}
 				}
 			}
-			fmt.Printf("[dry-run] Would ensure providers and install %d package(s)\n", count)
+
+			fmt.Println("\nPlan:")
+
+			// Show providers to install
+			var providersNeeded []string
+			for _, pkg := range packagesCfg.Packages {
+				if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
+					providersNeeded = append(providersNeeded, pkg.Provider)
+				}
+			}
+			orderedProviders, _ := config.ResolveProvidersWithDependencies(providersNeeded)
+			for _, name := range orderedProviders {
+				p := getProvider(name)
+				if p == nil {
+					continue
+				}
+				installed, _ := p.CheckInstalled()
+				if !installed {
+					fmt.Printf("  + provider %s\n", name)
+				}
+			}
+
+			// Show packages to install
+			if len(toInstall) > 0 {
+				for _, pkg := range toInstall {
+					fmt.Printf("  + %s %s\n", pkg.Provider, pkg.Name)
+				}
+			}
+
+			// Show packages to upgrade
+			if len(toUpgrade) > 0 {
+				for _, pkg := range toUpgrade {
+					fmt.Printf("  ~ %s %s (upgrade)\n", pkg.Provider, pkg.Name)
+				}
+			}
+
+			// Show manual packages
+			if len(manualPackages) > 0 {
+				fmt.Println("\n  Manual packages (ensure they are installed):")
+				for _, pkg := range manualPackages {
+					fmt.Printf("    - %s\n", pkg.Name)
+				}
+			}
 		}
+
 		if doLinks {
 			links, _ := config.ListLinks("", "")
-			fmt.Printf("[dry-run] Would apply %d link(s)\n", len(links))
+			if len(links) > 0 {
+				fmt.Println("\n  Links:")
+				for _, link := range links {
+					fmt.Printf("  + link %s\n", link.Manifest.UserPath)
+				}
+			}
 		}
+
 		exists, _ := config.BootstrapScriptExists()
 		if exists {
-			fmt.Println("[dry-run] Would run bootstrap script at the end")
+			fmt.Println("\n  + bootstrap script")
 		}
+
+		fmt.Println("\nNo changes will be made in plan mode.")
 		return nil
 	}
 

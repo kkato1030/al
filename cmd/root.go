@@ -7,6 +7,7 @@ import (
 	packagecmd "github.com/kkato1030/al/cmd/package"
 	"github.com/kkato1030/al/cmd/profile"
 	"github.com/kkato1030/al/cmd/provider"
+	shellcmd "github.com/kkato1030/al/cmd/shell"
 	"github.com/spf13/cobra"
 )
 
@@ -61,6 +62,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(provider.NewProviderCmd())
 	rootCmd.AddCommand(profile.NewProfileCmd())
 	rootCmd.AddCommand(packagecmd.NewPackageCmd())
+	rootCmd.AddCommand(shellcmd.NewCmd())
 
 	return rootCmd
 }

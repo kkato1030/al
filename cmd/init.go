@@ -14,7 +14,7 @@ func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize al with standard configuration",
-		Long:  "Initialize al for first-time users. Sets up standard profile (core.trial with trial stage), provider (brew), and default settings.",
+		Long:  "Initialize al for first-time users. Sets up stable-trial profiles (core and core.trial), provider (brew), and default settings.",
 		Args:  cobra.NoArgs,
 		RunE:  runInit,
 	}
@@ -27,16 +27,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Add profile: core.trial (trial stage)
-	coreProfile := config.ProfileConfig{
-		Name:               "core.trial",
-		Stage:              "trial",
-		PackageDuplication: "warn",
+	// Get stable-trial template
+	template, err := config.GetTemplate("stable-trial")
+	if err != nil {
+		return fmt.Errorf("failed to get stable-trial template: %w", err)
 	}
-	if err := config.AddOrUpdateProfile(coreProfile); err != nil {
-		return fmt.Errorf("failed to add profile: %w", err)
+
+	// Apply template to create core and core.trial profiles
+	profiles, err := config.ApplyTemplate(template, "core")
+	if err != nil {
+		return fmt.Errorf("failed to apply stable-trial template: %w", err)
 	}
-	fmt.Println("Profile 'core.trial' has been set up")
+
+	// Save each profile
+	for _, profile := range profiles {
+		// Set default package_duplication if not set
+		if profile.PackageDuplication == "" {
+			profile.PackageDuplication = "warn"
+		}
+
+		if err := config.AddOrUpdateProfile(profile); err != nil {
+			return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
+		}
+		fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+	}
 
 	// Add provider: brew
 	brewProvider := provider.NewBrewProvider()

@@ -50,7 +50,7 @@ func NewPackageImportCmd() *cobra.Command {
 				return fmt.Errorf("error loading app config: %w", err)
 			}
 
-			finalProfile, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
+			finalProfile, appliedStage, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
 			if err != nil {
 				return fmt.Errorf("error building profile name: %w", err)
 			}
@@ -58,7 +58,7 @@ func NewPackageImportCmd() *cobra.Command {
 				return fmt.Errorf("profile is required. Use --profile or set default profile with 'al config set --default-profile <profile>'")
 			}
 
-			profileConfig, err := findProfileWithFallback(finalProfile, stage)
+			profileConfig, err := findProfileWithFallback(finalProfile, appliedStage)
 			if err != nil {
 				return fmt.Errorf("error loading profile: %w", err)
 			}

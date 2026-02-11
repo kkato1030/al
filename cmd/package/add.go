@@ -49,7 +49,7 @@ func NewPackageAddCmd() *cobra.Command {
 			}
 
 			// Build final profile name from profile and stage flags/defaults
-			finalProfile, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
+			finalProfile, appliedStage, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
 			if err != nil {
 				return fmt.Errorf("error building profile name: %w", err)
 			}
@@ -68,15 +68,8 @@ func NewPackageAddCmd() *cobra.Command {
 				return fmt.Errorf("provider '%s' does not exist", finalProvider)
 			}
 
-			// Try to find profile, with fallback to profile_name without stage if stage is specified
-			// Determine if a stage was used (either from flag or default)
-			effectiveStage := stage
-			if effectiveStage == "" && appConfig.DefaultStage != "" && strings.Contains(finalProfile, ".") {
-				// If no explicit stage flag but finalProfile contains a dot and we have a default stage,
-				// the default stage was used
-				effectiveStage = appConfig.DefaultStage
-			}
-			profileConfig, err := findProfileWithFallback(finalProfile, effectiveStage)
+			// Try to find profile, with fallback to profile_name without stage if stage was applied
+			profileConfig, err := findProfileWithFallback(finalProfile, appliedStage)
 			if err != nil {
 				return fmt.Errorf("error loading profile: %w", err)
 			}
@@ -106,14 +99,20 @@ func NewPackageAddCmd() *cobra.Command {
 // buildProfileName builds the final profile name from profile and stage flags/defaults
 // If profile contains ".", it's treated as a full profile name (profile_name.stage_name)
 // Otherwise, it's treated as profile_name and combined with stage
-func buildProfileName(profileFlag, stageFlag, defaultProfile, defaultStage string) (string, error) {
+// Returns the profile name and the stage that was applied (empty if no stage was applied)
+func buildProfileName(profileFlag, stageFlag, defaultProfile, defaultStage string) (string, string, error) {
 	// If profile flag contains ".", treat it as a full profile name
 	if profileFlag != "" && strings.Contains(profileFlag, ".") {
 		// Validate the full profile name
 		if err := config.ValidateProfileName(profileFlag); err != nil {
-			return "", err
+			return "", "", err
 		}
-		return profileFlag, nil
+		// Parse to get the stage that was in the profile name
+		_, stage, err := config.ParseProfileName(profileFlag)
+		if err != nil {
+			return "", "", err
+		}
+		return profileFlag, stage, nil
 	}
 
 	// Determine profile_name
@@ -129,7 +128,8 @@ func buildProfileName(profileFlag, stageFlag, defaultProfile, defaultStage strin
 	}
 
 	// Build full profile name
-	return config.BuildProfileName(profileName, stageName)
+	fullName, err := config.BuildProfileName(profileName, stageName)
+	return fullName, stageName, err
 }
 
 // findProfileWithFallback finds a profile by name, with fallback to profile_name without stage if stage is specified
@@ -416,20 +416,13 @@ func runPackageAddInteractive(packageName, provider, profile, stage, version, de
 	}
 
 	// Build final profile name from profile and stage
-	finalProfile, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
+	finalProfile, appliedStage, err := buildProfileName(profile, stage, appConfig.DefaultProfile, appConfig.DefaultStage)
 	if err != nil {
 		return fmt.Errorf("error building profile name: %w", err)
 	}
 
 	// Verify profile exists with fallback
-	// Determine if a stage was used (either from flag or default)
-	effectiveStage := stage
-	if effectiveStage == "" && appConfig.DefaultStage != "" && strings.Contains(finalProfile, ".") {
-		// If no explicit stage flag but finalProfile contains a dot and we have a default stage,
-		// the default stage was used
-		effectiveStage = appConfig.DefaultStage
-	}
-	profileConfig, err := findProfileWithFallback(finalProfile, effectiveStage)
+	profileConfig, err := findProfileWithFallback(finalProfile, appliedStage)
 	if err != nil {
 		return fmt.Errorf("error loading profile: %w", err)
 	}

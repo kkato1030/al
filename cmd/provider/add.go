@@ -2,7 +2,9 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -20,46 +22,67 @@ func NewProviderAddCmd() *cobra.Command {
 
 func runProviderAdd(cmd *cobra.Command, args []string) error {
 	providerName := args[0]
-	var p provider.Provider
 
-	switch providerName {
-	case "brew":
-		p = provider.NewBrewProvider()
-	case "mas":
-		p = provider.NewMasProvider()
-	case "manual":
-		p = provider.NewManualProvider()
-	default:
-		return fmt.Errorf("unknown provider: %s\nAvailable providers: brew, mas, manual", providerName)
+	orderedProviders, err := config.ResolveProvidersWithDependencies([]string{providerName})
+	if err != nil {
+		return fmt.Errorf("error resolving provider dependencies: %w", err)
 	}
 
-	// Check if already installed
+	if len(orderedProviders) > 1 {
+		fmt.Printf("Resolved provider dependencies: %s\n", strings.Join(orderedProviders, " -> "))
+	}
+
+	for _, name := range orderedProviders {
+		if err := addProvider(name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addProvider(providerName string) error {
+	p, err := providerFromName(providerName)
+	if err != nil {
+		return err
+	}
+
 	installed, err := p.CheckInstalled()
 	if err != nil {
-		return fmt.Errorf("error checking installation: %w", err)
+		return fmt.Errorf("error checking installation for %s: %w", providerName, err)
 	}
 
 	if installed {
 		fmt.Printf("%s is already installed\n", providerName)
-		// Still set up config in case it's not configured
 		if err := p.SetupConfig(); err != nil {
-			fmt.Printf("Warning: failed to set up config: %v\n", err)
+			fmt.Printf("Warning: failed to set up config for %s: %v\n", providerName, err)
 		}
 		return nil
 	}
 
-	// Install the provider
 	fmt.Printf("Installing %s...\n", providerName)
 	if err := p.Install(); err != nil {
 		return fmt.Errorf("error installing %s: %w", providerName, err)
 	}
 
-	// Set up config
 	fmt.Printf("Setting up configuration for %s...\n", providerName)
 	if err := p.SetupConfig(); err != nil {
-		return fmt.Errorf("error setting up config: %w", err)
+		return fmt.Errorf("error setting up config for %s: %w", providerName, err)
 	}
 
 	fmt.Printf("%s has been successfully installed and configured\n", providerName)
 	return nil
+}
+
+func providerFromName(providerName string) (provider.Provider, error) {
+	switch providerName {
+	case "brew":
+		return provider.NewBrewProvider(), nil
+	case "mas":
+		return provider.NewMasProvider(), nil
+	case "manual":
+		return provider.NewManualProvider(), nil
+	default:
+		return nil, fmt.Errorf("unknown provider: %s\nAvailable providers: brew, mas, manual", providerName)
+	}
 }

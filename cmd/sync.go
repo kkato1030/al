@@ -156,13 +156,17 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		if err != nil {
 			return fmt.Errorf("load packages: %w", err)
 		}
-		providersNeeded := make(map[string]bool)
+		var providersNeeded []string
 		for _, pkg := range packagesCfg.Packages {
 			if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
-				providersNeeded[pkg.Provider] = true
+				providersNeeded = append(providersNeeded, pkg.Provider)
 			}
 		}
-		for name := range providersNeeded {
+		orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
+		if err != nil {
+			return fmt.Errorf("resolve provider dependencies: %w", err)
+		}
+		for _, name := range orderedProviders {
 			p := getProvider(name)
 			if p == nil {
 				continue

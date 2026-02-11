@@ -48,13 +48,25 @@ func runProviderUpgradeAll(yes bool) error {
 		return nil
 	}
 
+	providerVersions := make(map[string]string, len(providersConfig.Providers))
+	var providerNames []string
+	for _, p := range providersConfig.Providers {
+		providerVersions[p.Name] = p.Version
+		providerNames = append(providerNames, p.Name)
+	}
+
+	orderedProviders, err := config.OrderProvidersByDependency(providerNames)
+	if err != nil {
+		return fmt.Errorf("error resolving provider upgrade order: %w", err)
+	}
+
 	// Ask for confirmation
 	if !yes {
-		fmt.Printf("This will upgrade all %d provider(s):\n", len(providersConfig.Providers))
-		for _, p := range providersConfig.Providers {
-			fmt.Printf("  - %s", p.Name)
-			if p.Version != "" {
-				fmt.Printf(" (current version: %s)", p.Version)
+		fmt.Printf("This will upgrade all %d provider(s):\n", len(orderedProviders))
+		for _, name := range orderedProviders {
+			fmt.Printf("  - %s", name)
+			if providerVersions[name] != "" {
+				fmt.Printf(" (current version: %s)", providerVersions[name])
 			}
 			fmt.Println()
 		}
@@ -68,10 +80,10 @@ func runProviderUpgradeAll(yes bool) error {
 	}
 
 	// Upgrade each provider
-	for _, providerConfig := range providersConfig.Providers {
-		fmt.Printf("\nUpgrading provider: %s\n", providerConfig.Name)
-		if err := runProviderUpgrade(providerConfig.Name); err != nil {
-			fmt.Printf("Error upgrading %s: %v\n", providerConfig.Name, err)
+	for _, providerName := range orderedProviders {
+		fmt.Printf("\nUpgrading provider: %s\n", providerName)
+		if err := runProviderUpgrade(providerName); err != nil {
+			fmt.Printf("Error upgrading %s: %v\n", providerName, err)
 			continue
 		}
 	}

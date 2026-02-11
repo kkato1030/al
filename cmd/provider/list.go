@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/spf13/cobra"
@@ -18,24 +19,31 @@ func NewProviderListCmd() *cobra.Command {
 }
 
 func runProviderList(cmd *cobra.Command, args []string) error {
-	config, err := config.LoadProvidersConfig()
+	providersCfg, err := config.LoadProvidersConfig()
 	if err != nil {
 		return fmt.Errorf("error loading providers config: %w", err)
 	}
 
-	if len(config.Providers) == 0 {
+	if len(providersCfg.Providers) == 0 {
 		fmt.Println("No providers installed")
 		return nil
 	}
 
 	fmt.Println("Installed providers:")
-	for _, p := range config.Providers {
+	for _, p := range providersCfg.Providers {
 		fmt.Printf("  - %s", p.Name)
 		if p.Version != "" {
 			fmt.Printf(" (version: %s)", p.Version)
 		}
 		if !p.InstalledAt.IsZero() {
 			fmt.Printf(" (installed at: %s)", p.InstalledAt.Format("2006-01-02 15:04:05"))
+		}
+		deps := p.DependsOn
+		if deps == nil {
+			deps = config.GetDefaultProviderDependencies(p.Name)
+		}
+		if len(deps) > 0 {
+			fmt.Printf(" (depends_on: %s)", strings.Join(deps, ", "))
 		}
 		fmt.Println()
 	}

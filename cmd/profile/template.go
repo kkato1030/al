@@ -117,6 +117,12 @@ func NewProfileTemplateShowCmd() *cobra.Command {
 				if profile.PromoteTo != "" {
 					fmt.Printf("  Promote to: %s\n", profile.PromoteTo)
 				}
+				if profile.ReviewDays != nil {
+					fmt.Printf("  Review days: %d\n", *profile.ReviewDays)
+				}
+				if profile.AutoSync != nil {
+					fmt.Printf("  Auto sync: %t\n", *profile.AutoSync)
+				}
 				if profile.PackageDuplication != "" {
 					fmt.Printf("  Package duplication: %s\n", profile.PackageDuplication)
 				}

@@ -8,19 +8,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDisableCmd creates the shell disable command
-func NewDisableCmd() *cobra.Command {
+// NewEnableCmd creates the shell enable command
+func NewEnableCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "disable <package-name>",
-		Short: "Disable package shell snippet for al activate (file is kept)",
+		Use:   "enable <package-name>",
+		Short: "Enable package shell snippet for al activate",
 		Args:  cobra.ExactArgs(1),
-		RunE:  runDisable,
+		RunE:  runEnable,
 	}
 	return cmd
 }
 
-func runDisable(cmd *cobra.Command, args []string) error {
-	return setEnabled(args[0], false)
+func runEnable(cmd *cobra.Command, args []string) error {
+	return setEnabled(args[0], true)
 }
 
 func setEnabled(packageName string, enabled bool) error {

@@ -16,7 +16,7 @@ func NewEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit <package-name>",
 		Short: "Edit package shell snippet in EDITOR",
-		Long:  "Open the package's shell.d snippet file in EDITOR (default: vim). File extension is inferred from SHELL.",
+		Long:  "Open the package's shell.d snippet file in EDITOR (default: vim). Returns an error if no configuration exists. Use 'add' to create a new configuration.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runEdit,
 	}
@@ -28,20 +28,25 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := config.EnsureShellPackageDir(pkg.ID, pkg.Provider); err != nil {
-		return err
-	}
 	pkgDir, err := config.GetShellPackageDir(pkg.ID, pkg.Provider)
 	if err != nil {
 		return err
 	}
+
+	// Check if the directory exists
+	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
+		return fmt.Errorf("no shell configuration exists for %s. Use 'al shell add %s' to create one", pkg.Name, pkg.Name)
+	}
+
 	ext := shellExtFromEnv()
 	snippetPath := filepath.Join(pkgDir, "snippet"+ext)
+
+	// Check if snippet file exists
 	if _, err := os.Stat(snippetPath); os.IsNotExist(err) {
-		if err := os.WriteFile(snippetPath, nil, 0644); err != nil {
-			return err
-		}
+		return fmt.Errorf("no shell snippet file exists for %s. Use 'al shell add %s' to create one", pkg.Name, pkg.Name)
 	}
+
+	// Open in editor
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "vim"

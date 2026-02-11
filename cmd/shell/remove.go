@@ -8,19 +8,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewUnsetCmd creates the shell unset command
-func NewUnsetCmd() *cobra.Command {
+// NewRemoveCmd creates the shell remove command
+func NewRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unset <package-name>",
+		Use:   "remove <package-name>",
 		Short: "Remove package shell.d snippet",
 		Long:  "Remove the shell.d directory for the package (snippet and manifest).",
 		Args:  cobra.ExactArgs(1),
-		RunE:  runUnset,
+		RunE:  runRemove,
 	}
 	return cmd
 }
 
-func runUnset(cmd *cobra.Command, args []string) error {
+func runRemove(cmd *cobra.Command, args []string) error {
 	pkg, err := ui.ResolvePackageByName(args[0])
 	if err != nil {
 		return err
@@ -28,6 +28,6 @@ func runUnset(cmd *cobra.Command, args []string) error {
 	if err := config.RemoveShellPackageDir(pkg.ID, pkg.Provider); err != nil {
 		return fmt.Errorf("removing shell.d: %w", err)
 	}
-	fmt.Printf("Unset shell snippet for %s (provider: %s)\n", pkg.Name, pkg.Provider)
+	fmt.Printf("Removed shell snippet for %s (provider: %s)\n", pkg.Name, pkg.Provider)
 	return nil
 }

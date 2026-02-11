@@ -56,7 +56,7 @@ eval "$(al activate bash)"  # bash
 | trial レビュー | trial のレビュー期限切れパッケージの対話的解決（remove / promote / postpone） | `al review` |
 | Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
 | link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
-| shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al package shell show/set/edit/enable/disable` |
+| shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al shell show/add/edit/remove/enable/disable` |
 | bootstrap | 新規 PC セットアップ用のワンオフシェルスクリプト（`~/.al/bootstrap/script.sh`） | `al bootstrap add/edit/remove/show` |
 | sync / backup | GitHub との clone 適用・push | `al sync [owner/repo]`, `al backup` |
 | Brewfile 取り込み | 既存 Brewfile を al の管理下に登録 | `al import Brewfile --prf <profile>` |
@@ -95,7 +95,7 @@ provider 間の依存関係は `providers.json` の `depends_on` で管理され
 
 ### shell.d
 
-パッケージごとのシェル設定を `~/.al/shell.d/<パッケージ識別子>/` に置き、`al activate` の出力でまとめて source する。読み込み順は after で制御。有効/無効は `al package shell enable/disable`。
+パッケージごとのシェル設定を `~/.al/shell.d/<パッケージ識別子>/` に置き、`al activate` の出力でまとめて source する。読み込み順は after で制御。有効/無効は `al shell enable/disable`。
 
 ### bootstrap
 
@@ -198,7 +198,7 @@ al update
 | `al package import [Brewfile]` | Brewfile から取り込み（`--prf`, `--install`, `--dry-run` など） |
 | `al package search <検索語>` | 検索 |
 | `al package upgrade` | 登録パッケージのアップグレード |
-| `al package shell` | shell.d の show/set/unset/edit/enable/disable |
+| `al shell` | shell.d の show/add/edit/remove/enable/disable |
 | `al package link` | link.d の add/remove/edit |
 
 ### al link
@@ -209,6 +209,19 @@ al update
 | `al link list` | 一覧 |
 | `al link remove <名前>` | 削除（オプションで実体をユーザパスへ copy-back） |
 | `al link edit <名前>` | ユーザパスなどの編集 |
+
+### al shell
+
+パッケージごとのシェルスニペット（`~/.al/shell.d/<パッケージ識別子>/`）を管理。
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al shell show <パッケージ名>` | シェルスニペットの内容と設定を表示 |
+| `al shell add <パッケージ名>` | 新規シェルスニペットを作成し、エディタで編集 |
+| `al shell edit <パッケージ名>` | 既存シェルスニペットを編集（未作成時はエラー。`add` を利用） |
+| `al shell remove <パッケージ名>` | シェルスニペットを削除 |
+| `al shell enable <パッケージ名>` | `al activate` での読み込みを有効化 |
+| `al shell disable <パッケージ名>` | `al activate` での読み込みを無効化（ファイルは保持） |
 
 ### al bootstrap
 

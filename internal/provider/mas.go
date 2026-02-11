@@ -321,7 +321,9 @@ func (p *MasProvider) IsPackageInstalled(packageID string) (bool, error) {
 	// Check if packageID is in the output
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), packageID+" ") || strings.HasPrefix(strings.TrimSpace(line), packageID+"\t") {
+		// Parse line format: "123456789 App Name"
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) > 0 && fields[0] == packageID {
 			return true, nil
 		}
 	}
@@ -357,7 +359,9 @@ func (p *MasProvider) IsPackageUpgradable(packageID string) (bool, error) {
 	// Check if packageID is in the outdated list
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		if strings.HasPrefix(strings.TrimSpace(line), packageID+" ") || strings.HasPrefix(strings.TrimSpace(line), packageID+"\t") {
+		// Parse line format: "123456789 App Name (version -> newversion)"
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) > 0 && fields[0] == packageID {
 			return true, nil
 		}
 	}

@@ -161,7 +161,12 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				}
 
 				// Check if provider is installed
-				providerInstalled, _ := p.CheckInstalled()
+				providerInstalled, err := p.CheckInstalled()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", pkg.Provider, err)
+					toInstall = append(toInstall, pkg)
+					continue
+				}
 				if !providerInstalled {
 					toInstall = append(toInstall, pkg)
 					continue
@@ -195,13 +200,21 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 					providersNeeded = append(providersNeeded, pkg.Provider)
 				}
 			}
-			orderedProviders, _ := config.ResolveProvidersWithDependencies(providersNeeded)
+			orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to resolve provider dependencies: %v\n", err)
+				orderedProviders = providersNeeded
+			}
 			for _, name := range orderedProviders {
 				p := getProvider(name)
 				if p == nil {
 					continue
 				}
-				installed, _ := p.CheckInstalled()
+				installed, err := p.CheckInstalled()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", name, err)
+					continue
+				}
 				if !installed {
 					fmt.Printf("  + provider %s\n", name)
 				}
@@ -231,8 +244,10 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		}
 
 		if doLinks {
-			links, _ := config.ListLinks("", "")
-			if len(links) > 0 {
+			links, err := config.ListLinks("", "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to list links: %v\n", err)
+			} else if len(links) > 0 {
 				fmt.Println("\n  Links:")
 				for _, link := range links {
 					fmt.Printf("  + link %s\n", link.Manifest.UserPath)
@@ -240,8 +255,10 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			}
 		}
 
-		exists, _ := config.BootstrapScriptExists()
-		if exists {
+		exists, err := config.BootstrapScriptExists()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to check for bootstrap script: %v\n", err)
+		} else if exists {
 			fmt.Println("\n  + bootstrap script")
 		}
 

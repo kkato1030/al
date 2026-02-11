@@ -69,7 +69,14 @@ func NewPackageAddCmd() *cobra.Command {
 			}
 
 			// Try to find profile, with fallback to profile_name without stage if stage is specified
-			profileConfig, err := findProfileWithFallback(finalProfile, stage)
+			// Determine if a stage was used (either from flag or default)
+			effectiveStage := stage
+			if effectiveStage == "" && appConfig.DefaultStage != "" && strings.Contains(finalProfile, ".") {
+				// If no explicit stage flag but finalProfile contains a dot and we have a default stage,
+				// the default stage was used
+				effectiveStage = appConfig.DefaultStage
+			}
+			profileConfig, err := findProfileWithFallback(finalProfile, effectiveStage)
 			if err != nil {
 				return fmt.Errorf("error loading profile: %w", err)
 			}
@@ -127,6 +134,7 @@ func buildProfileName(profileFlag, stageFlag, defaultProfile, defaultStage strin
 
 // findProfileWithFallback finds a profile by name, with fallback to profile_name without stage if stage is specified
 // If stage is specified and the full profile_name.stage_name is not found, it tries profile_name (without stage)
+// If both fail, it tries to find any profile with the same base profile_name but different stage
 func findProfileWithFallback(fullProfileName, stageFlag string) (*config.ProfileConfig, error) {
 	// First, try to find the profile with the full name
 	profileConfig, err := config.GetProfile(fullProfileName)
@@ -137,7 +145,7 @@ func findProfileWithFallback(fullProfileName, stageFlag string) (*config.Profile
 		return profileConfig, nil
 	}
 
-	// If stage is specified and profile not found, try to find profile_name without stage
+	// If stage is specified and profile not found, try fallback strategies
 	if stageFlag != "" {
 		profileName, _, err := config.ParseProfileName(fullProfileName)
 		if err != nil {
@@ -151,6 +159,30 @@ func findProfileWithFallback(fullProfileName, stageFlag string) (*config.Profile
 		}
 		if profileConfig != nil {
 			return profileConfig, nil
+		}
+
+		// If still not found, try to find any profile with the same base profile_name
+		// (e.g., if looking for "core.trial" but only "core.stable" exists)
+		profilesConfig, err := config.LoadProfilesConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, p := range profilesConfig.Profiles {
+			// Parse the profile name to get the base name
+			baseName, _, err := config.ParseProfileName(p.Name)
+			if err != nil {
+				// If parsing fails, check if the profile name exactly matches
+				if p.Name == profileName {
+					return &p, nil
+				}
+				continue
+			}
+
+			// Check if this profile has the same base name
+			if baseName == profileName {
+				return &p, nil
+			}
 		}
 	}
 
@@ -390,7 +422,14 @@ func runPackageAddInteractive(packageName, provider, profile, stage, version, de
 	}
 
 	// Verify profile exists with fallback
-	profileConfig, err := findProfileWithFallback(finalProfile, stage)
+	// Determine if a stage was used (either from flag or default)
+	effectiveStage := stage
+	if effectiveStage == "" && appConfig.DefaultStage != "" && strings.Contains(finalProfile, ".") {
+		// If no explicit stage flag but finalProfile contains a dot and we have a default stage,
+		// the default stage was used
+		effectiveStage = appConfig.DefaultStage
+	}
+	profileConfig, err := findProfileWithFallback(finalProfile, effectiveStage)
 	if err != nil {
 		return fmt.Errorf("error loading profile: %w", err)
 	}

@@ -392,8 +392,12 @@ func (p *MasProvider) ListInstalled() (map[string]bool, error) {
 	// Parse output
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
 		// Parse line format: "123456789 App Name"
-		fields := strings.Fields(strings.TrimSpace(line))
+		fields := strings.Fields(line)
 		if len(fields) > 0 {
 			appID := fields[0]
 			installed[appID] = true
@@ -427,8 +431,12 @@ func (p *MasProvider) ListUpgradable() (map[string]bool, error) {
 	// Parse output
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
 		// Parse line format: "123456789 App Name (version -> newversion)"
-		fields := strings.Fields(strings.TrimSpace(line))
+		fields := strings.Fields(line)
 		if len(fields) > 0 {
 			appID := fields[0]
 			upgradable[appID] = true

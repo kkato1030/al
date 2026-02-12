@@ -147,14 +147,18 @@ func TestRotateLogs(t *testing.T) {
 	os.MkdirAll(logsDir, 0755)
 
 	// Create 10 log files with different timestamps
+	baseTime := time.Now()
 	for i := 0; i < 10; i++ {
-		filename := time.Now().Add(-time.Duration(9-i)*time.Hour).Format("20060102-150405") + ".log"
+		filename := baseTime.Add(-time.Duration(9-i)*time.Hour).Format("20060102-150405") + ".log"
 		path := filepath.Join(logsDir, filename)
 		if err := os.WriteFile(path, []byte("test log"), 0644); err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
-		// Sleep a bit to ensure different modification times
-		time.Sleep(10 * time.Millisecond)
+		// Set explicit modification time
+		modTime := baseTime.Add(-time.Duration(9-i) * time.Hour)
+		if err := os.Chtimes(path, modTime, modTime); err != nil {
+			t.Fatalf("failed to set modification time: %v", err)
+		}
 	}
 
 	// Verify we have 10 files
@@ -187,13 +191,18 @@ func TestRotateLogs_NoRotationNeeded(t *testing.T) {
 	os.MkdirAll(logsDir, 0755)
 
 	// Create 3 log files
+	baseTime := time.Now()
 	for i := 0; i < 3; i++ {
-		filename := time.Now().Add(-time.Duration(2-i)*time.Hour).Format("20060102-150405") + ".log"
+		filename := baseTime.Add(-time.Duration(2-i)*time.Hour).Format("20060102-150405") + ".log"
 		path := filepath.Join(logsDir, filename)
 		if err := os.WriteFile(path, []byte("test log"), 0644); err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
-		time.Sleep(10 * time.Millisecond)
+		// Set explicit modification time
+		modTime := baseTime.Add(-time.Duration(2-i) * time.Hour)
+		if err := os.Chtimes(path, modTime, modTime); err != nil {
+			t.Fatalf("failed to set modification time: %v", err)
+		}
 	}
 
 	// Rotate with maxLogs=5 (should not delete anything)
@@ -241,13 +250,18 @@ func TestRotateLogs_IgnoresNonLogFiles(t *testing.T) {
 	os.MkdirAll(logsDir, 0755)
 
 	// Create log files and other files
+	baseTime := time.Now()
 	for i := 0; i < 5; i++ {
-		filename := time.Now().Add(-time.Duration(4-i)*time.Hour).Format("20060102-150405") + ".log"
+		filename := baseTime.Add(-time.Duration(4-i)*time.Hour).Format("20060102-150405") + ".log"
 		path := filepath.Join(logsDir, filename)
 		if err := os.WriteFile(path, []byte("test log"), 0644); err != nil {
 			t.Fatalf("failed to create test file: %v", err)
 		}
-		time.Sleep(10 * time.Millisecond)
+		// Set explicit modification time
+		modTime := baseTime.Add(-time.Duration(4-i) * time.Hour)
+		if err := os.Chtimes(path, modTime, modTime); err != nil {
+			t.Fatalf("failed to set modification time: %v", err)
+		}
 	}
 
 	// Create non-log files

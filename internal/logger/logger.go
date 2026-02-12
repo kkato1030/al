@@ -5,8 +5,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
+)
+
+const (
+	// DefaultMaxLogs is the default number of log files to keep
+	DefaultMaxLogs = 30
 )
 
 // Logger captures execution logs
@@ -41,6 +47,15 @@ func New(logsDir, command string) (*Logger, error) {
 
 	// Write header
 	l.writeHeader()
+
+	// Rotate old logs (keep only the most recent ones)
+	// Do this after creating the new log file, in a goroutine to not block
+	go func() {
+		if err := RotateLogs(logsDir, DefaultMaxLogs); err != nil {
+			// Log rotation errors are non-fatal, just print to stderr
+			fmt.Fprintf(os.Stderr, "Warning: log rotation failed: %v\n", err)
+		}
+	}()
 
 	return l, nil
 }
@@ -125,4 +140,64 @@ func ListLogs(logsDir string) ([]string, error) {
 	}
 
 	return logs, nil
+}
+
+// RotateLogs removes old log files, keeping only the most recent maxLogs files
+func RotateLogs(logsDir string, maxLogs int) error {
+	if maxLogs <= 0 {
+		return fmt.Errorf("maxLogs must be positive, got %d", maxLogs)
+	}
+
+	entries, err := os.ReadDir(logsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Directory doesn't exist, nothing to rotate
+			return nil
+		}
+		return fmt.Errorf("failed to read logs directory: %w", err)
+	}
+
+	// Collect log files with their modification times
+	type logFile struct {
+		name    string
+		modTime time.Time
+	}
+	var logFiles []logFile
+
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".log" {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue // Skip files we can't stat
+		}
+
+		logFiles = append(logFiles, logFile{
+			name:    entry.Name(),
+			modTime: info.ModTime(),
+		})
+	}
+
+	// If we have maxLogs or fewer, no rotation needed
+	if len(logFiles) <= maxLogs {
+		return nil
+	}
+
+	// Sort by modification time (newest first)
+	sort.Slice(logFiles, func(i, j int) bool {
+		return logFiles[i].modTime.After(logFiles[j].modTime)
+	})
+
+	// Delete old logs (keep only maxLogs newest)
+	for i := maxLogs; i < len(logFiles); i++ {
+		logPath := filepath.Join(logsDir, logFiles[i].name)
+		if err := os.Remove(logPath); err != nil {
+			// Don't fail the entire rotation if one file fails to delete
+			fmt.Fprintf(os.Stderr, "Warning: failed to remove old log %s: %v\n", logFiles[i].name, err)
+		}
+	}
+
+	return nil
 }

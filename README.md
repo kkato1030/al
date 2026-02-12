@@ -53,6 +53,7 @@ eval "$(al activate bash)"  # bash
 | 機能 | 説明 | 主なコマンド |
 |------|------|----------------|
 | パッケージ管理 | Homebrew / mas の追加・削除・昇格・一覧・アップグレード | `al add`, `al remove`, `al promote`, `al list`, `al upgrade` |
+| 差分確認 | 期待する状態（profiles）と現在の状態を比較 | `al diff` |
 | trial レビュー | trial のレビュー期限切れパッケージの対話的解決（remove / promote / postpone） | `al review` |
 | Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
 | link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
@@ -150,6 +151,7 @@ al update
 | `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
 | `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし、アップグレードもチェック）。`AL_DEBUG=1` でデバッグログ出力。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
+| `al diff` | 現在のシステムの状態とプロファイルで定義された期待する状態を比較。追加（+）、削除（-）、アップグレード（~）を表示。差分がある場合は終了コード 1 を返す |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
 | `al update` | al 本体を最新版に更新 |
 | `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |

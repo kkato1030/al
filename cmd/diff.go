@@ -26,6 +26,7 @@ Shows:
 Defaults to checking the "core" profile. Use --all to check all AutoSync-enabled profiles, 
 or --profile <name> to check a specific profile.
 Exit code is non-zero when drift exists.`,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && profile != "" {
 				return fmt.Errorf("cannot use --all and --profile together")
@@ -264,5 +265,6 @@ func runDiff(all bool, profileName string) error {
 	fmt.Printf("  %d package(s) already in sync\n", len(alreadyInstalled))
 
 	// Exit with non-zero code when drift exists
-	return fmt.Errorf("drift detected")
+	os.Exit(1)
+	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
@@ -14,6 +15,15 @@ import (
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+// debugLog prints debug messages if AL_DEBUG environment variable is set
+func debugLog(format string, args ...interface{}) {
+	if os.Getenv("AL_DEBUG") != "" {
+		timestamp := time.Now().Format("15:04:05.000")
+		fmt.Fprintf(os.Stderr, "[DEBUG %s] ", timestamp)
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
+}
 
 // NewSyncCmd creates the sync command
 func NewSyncCmd() *cobra.Command {
@@ -133,12 +143,15 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 	}
 
 	if dryRun {
+		debugLog("Starting plan mode")
 		if doPackages {
+			debugLog("Loading packages configuration")
 			fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
 			packagesCfg, err := config.LoadPackagesConfig()
 			if err != nil {
 				return fmt.Errorf("load packages: %w", err)
 			}
+			debugLog("Loaded %d packages from config", len(packagesCfg.Packages))
 
 			// Track packages by status
 			var toInstall []config.PackageConfig
@@ -155,6 +168,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			providerCaches := make(map[string]*providerCache)
 
 			// First pass: collect packages by provider
+			debugLog("Collecting packages by provider")
 			packagesByProvider := make(map[string][]config.PackageConfig)
 			for _, pkg := range packagesCfg.Packages {
 				if !syncTargetSet[pkg.Profile] {
@@ -166,30 +180,47 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				}
 				packagesByProvider[pkg.Provider] = append(packagesByProvider[pkg.Provider], pkg)
 			}
+			debugLog("Packages by provider: %v", func() map[string]int {
+				counts := make(map[string]int)
+				for p, pkgs := range packagesByProvider {
+					counts[p] = len(pkgs)
+				}
+				return counts
+			}())
 
 			// Second pass: check each provider once and build caches
+			debugLog("Checking providers and building caches")
 			for providerName := range packagesByProvider {
+				debugLog("Processing provider: %s", providerName)
+				startTime := time.Now()
+
 				p := getProvider(providerName)
 				if p == nil {
+					debugLog("Provider %s not available", providerName)
 					continue
 				}
 
 				cache := &providerCache{provider: p}
 
 				// Check if provider is installed
+				debugLog("Checking if provider %s is installed", providerName)
+				checkStart := time.Now()
 				providerInstalled, err := p.CheckInstalled()
+				debugLog("Provider %s CheckInstalled took %v", providerName, time.Since(checkStart))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", providerName, err)
 					cache.isInstalled = false
 				} else {
 					cache.isInstalled = providerInstalled
+					debugLog("Provider %s installed: %v", providerName, providerInstalled)
 				}
 
-				// If provider is installed, get all installed packages
-				// Note: We skip upgradable check in plan mode for performance
-				// (brew outdated can be very slow with many packages)
+				// If provider is installed, get all installed and upgradable packages
 				if cache.isInstalled {
+					debugLog("Listing installed packages for %s", providerName)
+					listStart := time.Now()
 					installedPkgs, err := p.ListInstalled()
+					debugLog("Provider %s ListInstalled took %v (returned %d packages)", providerName, time.Since(listStart), len(installedPkgs))
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "Warning: failed to list installed packages for %s: %v\n", providerName, err)
 						cache.installedPkgs = make(map[string]bool)
@@ -197,24 +228,38 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 						cache.installedPkgs = installedPkgs
 					}
 
-					// Initialize empty upgradable map (skip check for performance)
-					cache.upgradablePkgs = make(map[string]bool)
+					debugLog("Listing upgradable packages for %s", providerName)
+					upgradeStart := time.Now()
+					upgradablePkgs, err := p.ListUpgradable()
+					debugLog("Provider %s ListUpgradable took %v (returned %d packages)", providerName, time.Since(upgradeStart), len(upgradablePkgs))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to list upgradable packages for %s: %v\n", providerName, err)
+						cache.upgradablePkgs = make(map[string]bool)
+					} else {
+						cache.upgradablePkgs = upgradablePkgs
+					}
+				} else {
+					debugLog("Provider %s not installed, skipping package checks", providerName)
 				}
 
 				providerCaches[providerName] = cache
+				debugLog("Finished processing provider %s in %v", providerName, time.Since(startTime))
 			}
 
 			// Third pass: categorize each package
+			debugLog("Categorizing packages")
 			for providerName, packages := range packagesByProvider {
 				cache, ok := providerCaches[providerName]
 				if !ok || cache.provider == nil {
 					// Provider not available, mark all packages for install
+					debugLog("Provider %s not available, marking %d packages for install", providerName, len(packages))
 					toInstall = append(toInstall, packages...)
 					continue
 				}
 
 				if !cache.isInstalled {
 					// Provider not installed, all packages need install
+					debugLog("Provider %s not installed, marking %d packages for install", providerName, len(packages))
 					toInstall = append(toInstall, packages...)
 					continue
 				}
@@ -223,18 +268,22 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 					if cache.installedPkgs[pkg.ID] {
 						// Package is installed, check if upgradable
 						if cache.upgradablePkgs[pkg.ID] {
+							debugLog("Package %s is upgradable", pkg.Name)
 							toUpgrade = append(toUpgrade, pkg)
+						} else {
+							debugLog("Package %s is already installed and up-to-date", pkg.Name)
 						}
 					} else {
 						// Package not installed
+						debugLog("Package %s needs to be installed", pkg.Name)
 						toInstall = append(toInstall, pkg)
 					}
 				}
 			}
 
+			debugLog("Categorization complete: %d to install, %d to upgrade, %d manual", len(toInstall), len(toUpgrade), len(manualPackages))
+
 			fmt.Println("\nPlan:")
-			fmt.Println("  (Upgrade checks skipped for performance)")
-			fmt.Println()
 
 			// Show providers to install
 			var providersNeeded []string

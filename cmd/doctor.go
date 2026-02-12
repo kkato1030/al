@@ -238,7 +238,8 @@ func checkProviders() []CheckResult {
 	}
 
 	// Check gh (GitHub CLI) - optional but useful
-	if cmd := exec.Command("gh", "--version"); cmd.Run() == nil {
+	ghCmd := exec.Command("gh", "--version")
+	if err := ghCmd.Run(); err == nil {
 		results = append(results, CheckResult{
 			Status:  StatusOK,
 			Message: "gh (GitHub CLI) is available",

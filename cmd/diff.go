@@ -120,8 +120,9 @@ func getInstalledPackages() (map[string]bool, error) {
 			for _, line := range lines {
 				line = strings.TrimSpace(line)
 				if line != "" {
+					// Store both the short name and the prefixed version
+					installed[line] = true
 					installed["formula:"+line] = true
-					installed[line] = true // for backward compatibility
 				}
 			}
 		}
@@ -261,11 +262,52 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 		upgrades:  []packageDiff{},
 	}
 
+	// Build a map of short names to full tap package IDs for formulas from taps
+	// This helps us match "entire" with "formula:entireio/tap/entire"
+	shortNameToFullID := make(map[string]string)
+	for id, pkg := range desired {
+		if pkg.provider == "brew" && strings.HasPrefix(id, "formula:") {
+			fullName := strings.TrimPrefix(id, "formula:")
+			// Check if it's a tap formula (has 2 slashes: owner/repo/name)
+			if strings.Count(fullName, "/") == 2 {
+				// Extract the short name (last part after the last slash)
+				parts := strings.Split(fullName, "/")
+				if len(parts) == 3 {
+					shortName := parts[2]
+					shortNameToFullID[shortName] = id
+					shortNameToFullID["formula:"+shortName] = id
+				}
+			}
+		}
+	}
+
 	// Find additions (in desired but not installed)
 	for id, pkg := range desired {
-		if !installed[id] {
+		isInstalled := installed[id]
+		isUpgradable := upgradable[id]
+
+		// For tap formulas, also check if the short name is installed/upgradable
+		if pkg.provider == "brew" && strings.HasPrefix(id, "formula:") {
+			fullName := strings.TrimPrefix(id, "formula:")
+			if strings.Count(fullName, "/") == 2 {
+				parts := strings.Split(fullName, "/")
+				if len(parts) == 3 {
+					shortName := parts[2]
+					// Check if the short name is installed
+					if !isInstalled && (installed[shortName] || installed["formula:"+shortName]) {
+						isInstalled = true
+					}
+					// Check if the short name is upgradable
+					if !isUpgradable && (upgradable[shortName] || upgradable["formula:"+shortName]) {
+						isUpgradable = true
+					}
+				}
+			}
+		}
+
+		if !isInstalled {
 			result.additions = append(result.additions, pkg)
-		} else if upgradable[id] {
+		} else if isUpgradable {
 			// Package is installed and upgradable, and it's in desired state
 			result.upgrades = append(result.upgrades, pkg)
 		}
@@ -274,30 +316,70 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 	// Find removals (installed but not in desired)
 	for id := range installed {
 		// Check if this package is in desired state
-		if _, ok := desired[id]; !ok {
-			// Try to infer provider and name from ID
-			var providerName, name string
-			if strings.HasPrefix(id, "formula:") {
-				providerName = "brew"
-				name = strings.TrimPrefix(id, "formula:")
-			} else if strings.HasPrefix(id, "cask:") {
-				providerName = "brew"
-				name = strings.TrimPrefix(id, "cask:")
-			} else if strings.Contains(id, ":") {
-				// Skip prefixed IDs that are already handled
+		if _, ok := desired[id]; ok {
+			continue // Already in desired state
+		}
+
+		// Check if this is a short name that corresponds to a tap formula
+		if fullID, isTapFormula := shortNameToFullID[id]; isTapFormula {
+			// This is the short name of a tap formula that's in desired state
+			// Don't add it to removals
+			if _, ok := desired[fullID]; ok {
 				continue
+			}
+		}
+
+		// Try to infer provider and name from ID
+		var providerName, name string
+		skip := false
+
+		if strings.HasPrefix(id, "formula:") {
+			providerName = "brew"
+			name = strings.TrimPrefix(id, "formula:")
+
+			// Check if this short name corresponds to a tap formula
+			if fullID, ok := shortNameToFullID["formula:"+name]; ok {
+				if _, inDesired := desired[fullID]; inDesired {
+					continue // This is a tap formula that's in desired state
+				}
+			}
+		} else if strings.HasPrefix(id, "cask:") {
+			providerName = "brew"
+			name = strings.TrimPrefix(id, "cask:")
+		} else if strings.Contains(id, ":") {
+			// Skip prefixed IDs that are already handled
+			continue
+		} else {
+			// This is a bare name without prefix (e.g., "git", "entire", "123456")
+
+			// Check if it's a mas app (numeric ID)
+			var appID int
+			if _, err := fmt.Sscanf(id, "%d", &appID); err == nil {
+				providerName = "mas"
+				name = id
 			} else {
-				// Check if it's a mas app (numeric ID)
-				var appID int
-				if _, err := fmt.Sscanf(id, "%d", &appID); err == nil {
-					providerName = "mas"
-					name = id
-				} else {
+				// This is a bare formula name
+				// Check if there's a prefixed version in installed (formula:git)
+				if installed["formula:"+id] {
+					// There's a prefixed version, and we'll handle that one instead
+					// Skip this bare name to avoid duplicate removals
+					skip = true
+				} else if fullID, ok := shortNameToFullID[id]; ok {
+					// Check if it's from a tap formula in desired state
+					if _, inDesired := desired[fullID]; inDesired {
+						continue // This is a tap formula that's in desired state
+					}
+				}
+
+				if !skip {
 					// Assume it's a brew formula
 					providerName = "brew"
 					name = id
 				}
 			}
+		}
+
+		if !skip {
 			result.removals = append(result.removals, packageDiff{
 				provider: providerName,
 				name:     name,

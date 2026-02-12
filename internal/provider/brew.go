@@ -130,6 +130,14 @@ func (p *BrewProvider) parsePackageID(packageID string) (pkgType, pkgName string
 
 // detectPackageType detects if a package is a formula, cask, or tap
 func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
+	// Check if it's a formula from a tap (3 parts: owner/repo/formula)
+	// This needs to be checked first before trying brew info, as the tap might not be installed yet
+	slashCount := strings.Count(packageName, "/")
+	if slashCount == 2 {
+		// This is a formula from a tap (e.g., entireio/tap/entire)
+		return "formula", nil
+	}
+
 	// Try cask first (casks can have same name as formulas)
 	cmd := exec.Command("brew", "info", "--cask", packageName)
 	err := cmd.Run()
@@ -145,19 +153,17 @@ func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
 	}
 
 	// Try tap: "user/repo" is a tap name (installed or not)
-	if strings.Contains(packageName, "/") {
-		parts := strings.SplitN(packageName, "/", 2)
-		if len(parts) == 2 {
-			// Check if tap is already installed (full name: user/repo)
-			cmd = exec.Command("brew", "tap-info", packageName)
-			err = cmd.Run()
-			if err == nil {
-				return "tap", nil
-			}
-			// Not installed yet: treat "user/repo" as tap so "brew tap user/repo" runs
+	if slashCount == 1 {
+		// This is a tap (e.g., entireio/tap)
+		// Check if tap is already installed
+		cmd = exec.Command("brew", "tap-info", packageName)
+		err = cmd.Run()
+		if err == nil {
 			return "tap", nil
 		}
-	} else {
+		// Not installed yet: treat as tap so "brew tap user/repo" runs
+		return "tap", nil
+	} else if slashCount == 0 {
 		// Single word: check if it's an installed tap name
 		cmd = exec.Command("brew", "tap-info", packageName)
 		err = cmd.Run()
@@ -195,6 +201,35 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 	pkgType, pkgName, err := p.parsePackageID(packageID)
 	if err != nil {
 		return fmt.Errorf("failed to parse package ID: %w", err)
+	}
+
+	// If it's a formula from a tap (3 parts: owner/repo/formula), ensure the tap is added first
+	if pkgType == "formula" && strings.Count(pkgName, "/") == 2 {
+		// Extract tap name (first two parts: owner/repo)
+		parts := strings.SplitN(pkgName, "/", 3)
+		if len(parts) == 3 {
+			tapName := parts[0] + "/" + parts[1]
+
+			// Check if tap is already tapped
+			tapInfoCmd := exec.Command("brew", "tap-info", tapName)
+			if err := tapInfoCmd.Run(); err != nil {
+				// Tap is not added yet, add it
+				fmt.Printf("Tapping %s...\n", tapName)
+				tapCmd := exec.Command("brew", "tap", tapName)
+				tapCmd.Stdin = os.Stdin
+				tapCmd.Stdout = os.Stdout
+				tapCmd.Stderr = os.Stderr
+
+				if err := tapCmd.Run(); err != nil {
+					return fmt.Errorf("failed to tap %s: %w", tapName, err)
+				}
+
+				// Add tap to config
+				if err := config.AddBrewTap(tapName); err != nil {
+					fmt.Printf("Warning: failed to save tap to config: %v\n", err)
+				}
+			}
+		}
 	}
 
 	// Run brew install command

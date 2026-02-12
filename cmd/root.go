@@ -52,6 +52,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(NewInitCmd())
 	rootCmd.AddCommand(NewBackupCmd())
 	rootCmd.AddCommand(NewSyncCmd())
+	rootCmd.AddCommand(NewDiffCmd())
 	rootCmd.AddCommand(NewUpdateCmd())
 	rootCmd.AddCommand(NewUpgradeCmd())
 	rootCmd.AddCommand(NewActivateCmd())

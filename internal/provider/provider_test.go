@@ -222,3 +222,48 @@ func TestManualProvider_BatchMethods(t *testing.T) {
 		t.Errorf("ListUpgradable() returned %d packages, want 0", len(upgradable))
 	}
 }
+
+// TestBrewProvider_detectPackageType tests the package type detection logic
+func TestBrewProvider_detectPackageType(t *testing.T) {
+	provider := NewBrewProvider()
+
+	tests := []struct {
+		name        string
+		packageName string
+		wantType    string
+	}{
+		{
+			name:        "formula from tap with 3 parts",
+			packageName: "entireio/tap/entire",
+			wantType:    "formula",
+		},
+		{
+			name:        "tap with 2 parts",
+			packageName: "entireio/tap",
+			wantType:    "tap",
+		},
+		{
+			name:        "simple formula",
+			packageName: "git",
+			wantType:    "formula",
+		},
+		{
+			name:        "formula from tap with owner/repo/formula format",
+			packageName: "homebrew/cask-versions/firefox-esr",
+			wantType:    "formula",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotType, err := provider.detectPackageType(tt.packageName)
+			if err != nil {
+				t.Errorf("detectPackageType(%q) error = %v", tt.packageName, err)
+				return
+			}
+			if gotType != tt.wantType {
+				t.Errorf("detectPackageType(%q) = %q, want %q", tt.packageName, gotType, tt.wantType)
+			}
+		})
+	}
+}

@@ -19,7 +19,14 @@ func NewDiffCmd() *cobra.Command {
 		Short: "Compare desired state and current state",
 		Long:  "Shows the difference between packages defined in profiles (desired state) and packages currently installed on the system. Displays additions (+), removals (-), and upgrades (~) available.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDiff()
+			exitCode := runDiff()
+			if exitCode != 0 {
+				// Drift detected - we've already printed output
+				// Return nil to avoid error message, but set exit code using os.Exit
+				// This is acceptable here because we've finished all our work
+				os.Exit(exitCode)
+			}
+			return nil
 		},
 	}
 
@@ -38,11 +45,12 @@ type packageDiff struct {
 	id       string
 }
 
-func runDiff() error {
+func runDiff() int {
 	// Load packages config to get desired state
 	packagesConfig, err := config.LoadPackagesConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load packages config: %w", err)
+		fmt.Fprintf(os.Stderr, "failed to load packages config: %v\n", err)
+		return 1
 	}
 
 	// Build a set of desired packages from profiles
@@ -67,13 +75,15 @@ func runDiff() error {
 	// Get currently installed packages from system
 	installedPackages, err := getInstalledPackages()
 	if err != nil {
-		return fmt.Errorf("failed to get installed packages: %w", err)
+		fmt.Fprintf(os.Stderr, "failed to get installed packages: %v\n", err)
+		return 1
 	}
 
 	// Get upgradable packages from system
 	upgradablePackages, err := getUpgradablePackages()
 	if err != nil {
-		return fmt.Errorf("failed to get upgradable packages: %w", err)
+		fmt.Fprintf(os.Stderr, "failed to get upgradable packages: %v\n", err)
+		return 1
 	}
 
 	// Calculate diff
@@ -84,10 +94,10 @@ func runDiff() error {
 
 	// Return non-zero exit code if there are any differences
 	if len(result.additions) > 0 || len(result.removals) > 0 || len(result.upgrades) > 0 {
-		os.Exit(1)
+		return 1
 	}
 
-	return nil
+	return 0
 }
 
 // getInstalledPackages returns all installed packages from brew and mas
@@ -278,7 +288,8 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 				continue
 			} else {
 				// Check if it's a mas app (numeric ID)
-				if _, err := fmt.Sscanf(id, "%d", new(int)); err == nil {
+				var appID int
+				if _, err := fmt.Sscanf(id, "%d", &appID); err == nil {
 					providerName = "mas"
 					name = id
 				} else {

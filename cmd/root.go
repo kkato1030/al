@@ -57,6 +57,7 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(NewActivateCmd())
 	rootCmd.AddCommand(NewReviewCmd())
 	rootCmd.AddCommand(NewLogsCmd())
+	rootCmd.AddCommand(NewDoctorCmd())
 	rootCmd.AddCommand(bootstrapcmd.NewBootstrapCmd())
 	rootCmd.AddCommand(configcmd.NewConfigCmd())
 	rootCmd.AddCommand(linkcmd.NewLinkCmd())

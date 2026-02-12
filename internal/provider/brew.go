@@ -475,8 +475,8 @@ func (p *BrewProvider) ListInstalled() (map[string]bool, error) {
 		return installed, nil
 	}
 
-	// Get all installed formulas
-	formulaCmd := exec.Command("brew", "list", "--formula")
+	// Get explicitly installed formulas (excluding dependencies)
+	formulaCmd := exec.Command("brew", "list", "--formula", "--installed-on-request")
 	formulaOutput, err := formulaCmd.Output()
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(formulaOutput)), "\n")
@@ -491,7 +491,7 @@ func (p *BrewProvider) ListInstalled() (map[string]bool, error) {
 		}
 	}
 
-	// Get all installed casks
+	// Get all installed casks (casks don't have dependencies, all are explicitly installed)
 	caskCmd := exec.Command("brew", "list", "--cask")
 	caskOutput, err := caskCmd.Output()
 	if err == nil {

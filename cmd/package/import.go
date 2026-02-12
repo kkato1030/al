@@ -21,6 +21,12 @@ func detectInstalledPackages(interactive bool, profileName string) (*brewfile.Pa
 		Skipped: []brewfile.SkippedLine{},
 	}
 
+	// Cache mas list output for efficiency (used by getMasAppName)
+	masListCache, err := cacheMasList()
+	if err != nil {
+		masListCache = make(map[string]string) // empty cache on error
+	}
+
 	// Check if brew provider is registered
 	brewProvConfig, _ := config.GetProvider("brew")
 	if brewProvConfig != nil {
@@ -34,6 +40,7 @@ func detectInstalledPackages(interactive bool, profileName string) (*brewfile.Pa
 			}
 
 			// Convert to entries
+			// The map values are just boolean markers (true), indicating presence
 			for pkgID := range installedPkgs {
 				// Determine name from ID
 				name := pkgID
@@ -81,12 +88,12 @@ func detectInstalledPackages(interactive bool, profileName string) (*brewfile.Pa
 			}
 
 			// Convert to entries
+			// The map values are just boolean markers (true), indicating presence
 			for appID := range installedApps {
-				// For mas, we need to get the app name
-				// mas list output format is "appID AppName", so we parse it
-				name, err := getMasAppName(appID)
-				if err != nil {
-					name = appID // fallback to ID if name cannot be retrieved
+				// Get the app name from cached mas list output
+				name := masListCache[appID]
+				if name == "" {
+					name = appID // fallback to ID if name not in cache
 				}
 
 				entry := brewfile.Entry{
@@ -110,25 +117,26 @@ func detectInstalledPackages(interactive bool, profileName string) (*brewfile.Pa
 	return result, nil
 }
 
-// getMasAppName retrieves the app name for a given mas app ID
-func getMasAppName(appID string) (string, error) {
-	// Create a mas provider to run mas list
+// cacheMasList runs `mas list` once and returns a map of appID -> appName
+func cacheMasList() (map[string]string, error) {
+	cache := make(map[string]string)
+
 	masProv := provider.NewMasProvider()
 
 	// Check if mas is installed
 	installed, err := masProv.CheckInstalled()
 	if err != nil || !installed {
-		return appID, fmt.Errorf("mas not installed")
+		return cache, fmt.Errorf("mas not installed")
 	}
 
-	// Run mas list to get app name
+	// Run mas list to get all apps
 	cmd := exec.Command("mas", "list")
 	output, err := cmd.Output()
 	if err != nil {
-		return appID, fmt.Errorf("failed to run mas list: %w", err)
+		return cache, fmt.Errorf("failed to run mas list: %w", err)
 	}
 
-	// Parse output to find the app name
+	// Parse output to build cache
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -137,19 +145,20 @@ func getMasAppName(appID string) (string, error) {
 		}
 		// Format: "123456789 App Name (version)"
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == appID {
+		if len(fields) >= 2 {
+			appID := fields[0]
 			// Extract name (everything between ID and potential version)
 			nameParts := fields[1:]
 			name := strings.Join(nameParts, " ")
 			// Remove version info if present (e.g., "(1.2.3)")
-			if idx := strings.Index(name, "("); idx > 0 {
+			if idx := strings.Index(name, "("); idx >= 0 {
 				name = strings.TrimSpace(name[:idx])
 			}
-			return name, nil
+			cache[appID] = name
 		}
 	}
 
-	return appID, fmt.Errorf("app not found in mas list")
+	return cache, nil
 }
 
 // promptForPackage asks the user whether to import a package

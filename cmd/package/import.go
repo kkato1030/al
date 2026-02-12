@@ -34,6 +34,8 @@ func detectInstalledPackages(interactive bool, profileName string) (*brewfile.Pa
 		installed, err := brewProv.CheckInstalled()
 		if err == nil && installed {
 			// Get list of installed packages
+			// Note: ListInstalled() uses `brew leaves` to get only explicitly installed
+			// packages (not dependencies). Casks and taps are always considered explicit.
 			installedPkgs, err := brewProv.ListInstalled()
 			if err != nil {
 				return nil, fmt.Errorf("failed to list brew packages: %w", err)

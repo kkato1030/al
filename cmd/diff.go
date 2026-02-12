@@ -21,7 +21,7 @@ func NewDiffCmd() *cobra.Command {
 Shows:
   + packages that need to be installed
   ~ packages that have upgrades available
-  - packages that are installed but not in profiles
+  - packages that are installed but not in any profile
 
 Use --all to check all AutoSync-enabled profiles, or --profile <name> to check a specific profile.
 Exit code is non-zero when drift exists.`,
@@ -194,22 +194,24 @@ func runDiff(all bool, profileName string) error {
 		}
 	}
 
-	// Fourth pass: find packages installed but not in profiles (removals)
+	// Fourth pass: find packages installed but not in ANY profile (removals)
+	// Build a map of ALL packages across ALL profiles to avoid showing packages from other profiles
+	allPackagesInConfig := make(map[string]bool)
+	for _, pkg := range packagesCfg.Packages {
+		if pkg.Provider != "manual" {
+			allPackagesInConfig[pkg.ID] = true
+		}
+	}
+
 	var toRemove []string
 	for providerName, cache := range providerCaches {
 		if !cache.isInstalled {
 			continue
 		}
 
-		// Get all desired package IDs for this provider
-		desiredPkgs := make(map[string]bool)
-		for _, pkg := range packagesByProvider[providerName] {
-			desiredPkgs[pkg.ID] = true
-		}
-
-		// Find installed packages not in desired state
+		// Find installed packages not in ANY profile
 		for installedPkgID := range cache.installedPkgs {
-			if !desiredPkgs[installedPkgID] {
+			if !allPackagesInConfig[installedPkgID] {
 				toRemove = append(toRemove, fmt.Sprintf("%s %s", providerName, installedPkgID))
 			}
 		}
@@ -235,11 +237,11 @@ func runDiff(all bool, profileName string) error {
 		}
 	}
 
-	// Show packages to remove
+	// Show packages to remove (not in any profile)
 	if len(toRemove) > 0 {
 		hasDrift = true
 		for _, pkgInfo := range toRemove {
-			fmt.Printf("  - %s (not in profiles)\n", pkgInfo)
+			fmt.Printf("  - %s (not in any profile)\n", pkgInfo)
 		}
 	}
 
@@ -260,7 +262,7 @@ func runDiff(all bool, profileName string) error {
 	fmt.Printf("\nSummary:\n")
 	fmt.Printf("  %d package(s) to install\n", len(toInstall))
 	fmt.Printf("  %d package(s) to upgrade\n", len(toUpgrade))
-	fmt.Printf("  %d package(s) not in profiles\n", len(toRemove))
+	fmt.Printf("  %d package(s) not in any profile\n", len(toRemove))
 	fmt.Printf("  %d package(s) already in sync\n", len(alreadyInstalled))
 
 	// Exit with non-zero code when drift exists

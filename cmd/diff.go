@@ -23,7 +23,8 @@ Shows:
   ~ packages that have upgrades available
   - packages that are installed but not in any profile
 
-Use --all to check all AutoSync-enabled profiles, or --profile <name> to check a specific profile.
+Defaults to checking the "core" profile. Use --all to check all AutoSync-enabled profiles, 
+or --profile <name> to check a specific profile.
 Exit code is non-zero when drift exists.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && profile != "" {
@@ -67,15 +68,12 @@ func runDiff(all bool, profileName string) error {
 			return fmt.Errorf("no profiles have AutoSync enabled")
 		}
 	} else {
-		// Default: same logic as sync (profiles with AutoSync enabled)
-		for _, p := range profilesCfg.Profiles {
-			if p.AutoSync != nil && *p.AutoSync {
-				syncTargetNames = append(syncTargetNames, p.Name)
-			}
+		// Default: check "core" profile
+		extends, err := config.ResolveProfileWithExtends("core")
+		if err != nil {
+			return fmt.Errorf("failed to resolve core profile: %w. Use --profile or --all flag", err)
 		}
-		if len(syncTargetNames) == 0 {
-			return fmt.Errorf("no profiles have AutoSync enabled. Use --profile or --all flag")
-		}
+		syncTargetNames = extends
 	}
 
 	// Build set for quick lookup

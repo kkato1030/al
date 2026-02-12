@@ -70,9 +70,6 @@ func runDiff() int {
 			name:     pkg.Name,
 			id:       pkg.ID,
 		}
-		if os.Getenv("AL_DEBUG") != "" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] Desired package: ID='%s', Name='%s', Provider='%s'\n", pkg.ID, pkg.Name, pkg.Provider)
-		}
 	}
 
 	// Get currently installed packages from system
@@ -126,9 +123,6 @@ func getInstalledPackages() (map[string]bool, error) {
 					// Store both the short name and the prefixed version
 					installed[line] = true
 					installed["formula:"+line] = true
-					if os.Getenv("AL_DEBUG") != "" {
-						fmt.Fprintf(os.Stderr, "[DEBUG] Installed formula: %s (also as formula:%s)\n", line, line)
-					}
 				}
 			}
 		}
@@ -142,9 +136,6 @@ func getInstalledPackages() (map[string]bool, error) {
 				line = strings.TrimSpace(line)
 				if line != "" {
 					installed["cask:"+line] = true
-					if os.Getenv("AL_DEBUG") != "" {
-						fmt.Fprintf(os.Stderr, "[DEBUG] Installed cask: cask:%s\n", line)
-					}
 				}
 			}
 		}
@@ -172,9 +163,6 @@ func getInstalledPackages() (map[string]bool, error) {
 				if len(fields) > 0 {
 					appID := fields[0]
 					installed[appID] = true
-					if os.Getenv("AL_DEBUG") != "" {
-						fmt.Fprintf(os.Stderr, "[DEBUG] Installed mas app: %s\n", appID)
-					}
 				}
 			}
 		}
@@ -288,10 +276,6 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 					shortName := parts[2]
 					shortNameToFullID[shortName] = id
 					shortNameToFullID["formula:"+shortName] = id
-					// Debug output
-					if os.Getenv("AL_DEBUG") != "" {
-						fmt.Fprintf(os.Stderr, "[DEBUG] Mapping short name '%s' -> '%s'\n", shortName, id)
-					}
 				}
 			}
 		}
@@ -312,9 +296,6 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 					// Check if the short name is installed
 					if !isInstalled && (installed[shortName] || installed["formula:"+shortName]) {
 						isInstalled = true
-						if os.Getenv("AL_DEBUG") != "" {
-							fmt.Fprintf(os.Stderr, "[DEBUG] Found tap formula '%s' installed as short name '%s'\n", id, shortName)
-						}
 					}
 					// Check if the short name is upgradable
 					if !isUpgradable && (upgradable[shortName] || upgradable["formula:"+shortName]) {
@@ -344,9 +325,6 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 			// This is the short name of a tap formula that's in desired state
 			// Don't add it to removals
 			if _, ok := desired[fullID]; ok {
-				if os.Getenv("AL_DEBUG") != "" {
-					fmt.Fprintf(os.Stderr, "[DEBUG] Skipping removal of '%s' because it maps to tap formula '%s' in desired state\n", id, fullID)
-				}
 				continue
 			}
 		}

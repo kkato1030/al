@@ -32,13 +32,13 @@ func NewUpgradeCmd() *cobra.Command {
 					fmt.Fprintf(os.Stderr, "Warning: failed to create log file: %v\n", err)
 				}
 			}
-			
+
 			err = runUpgrade(yes, log)
-			
+
 			if log != nil {
 				log.Close()
 			}
-			
+
 			return err
 		},
 	}
@@ -57,7 +57,7 @@ func runUpgrade(yes bool, log *logger.Logger) error {
 			log.WriteString(msg)
 		}
 	}
-	
+
 	// Ask for confirmation
 	if !yes {
 		logPrintf("This will upgrade all providers and packages.\n")
@@ -86,9 +86,8 @@ func runUpgrade(yes bool, log *logger.Logger) error {
 	// Upgrade all packages
 	logPrintf("\n")
 	if err := packagecmd.RunPackageUpgradeAll(true); err != nil {
-		errMsg := fmt.Sprintf("error upgrading packages: %v", err)
 		if log != nil {
-			log.WriteString(errMsg + "\n")
+			log.WriteString(fmt.Sprintf("error upgrading packages: %v\n", err))
 		}
 		return fmt.Errorf("error upgrading packages: %w", err)
 	}

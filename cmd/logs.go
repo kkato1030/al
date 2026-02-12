@@ -62,13 +62,13 @@ func listLogs(logsDir string, count int) error {
 	}
 
 	fmt.Printf("Recent logs (showing up to %d):\n\n", count)
-	
+
 	displayed := 0
 	for _, log := range logs {
 		if displayed >= count {
 			break
 		}
-		
+
 		logPath := filepath.Join(logsDir, log)
 		info, err := os.Stat(logPath)
 		if err != nil {
@@ -87,7 +87,7 @@ func listLogs(logsDir string, count int) error {
 
 func openLog(logsDir, filename string) error {
 	logPath := filepath.Join(logsDir, filename)
-	
+
 	// Check if file exists
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		return fmt.Errorf("log file not found: %s", filename)
@@ -146,10 +146,10 @@ func formatSize(size int64) string {
 	if size < unit {
 		return fmt.Sprintf("%d B", size)
 	}
-	div, exp := int64(unit), 0
+	divisor, exponent := int64(unit), 0
 	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
+		divisor *= unit
+		exponent++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(divisor), "KMGTPE"[exponent])
 }

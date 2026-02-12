@@ -27,7 +27,7 @@ func New(logsDir, command string) (*Logger, error) {
 	// Create log file with timestamp
 	timestamp := time.Now().Format("20060102-150405")
 	logPath := filepath.Join(logsDir, timestamp+".log")
-	
+
 	file, err := os.Create(logPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log file: %w", err)
@@ -49,7 +49,7 @@ func New(logsDir, command string) (*Logger, error) {
 func (l *Logger) writeHeader() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	fmt.Fprintf(l.file, "=== al execution log ===\n")
 	fmt.Fprintf(l.file, "Command: %s\n", l.command)
 	fmt.Fprintf(l.file, "Started: %s\n", l.startTime.Format(time.RFC3339))
@@ -60,7 +60,7 @@ func (l *Logger) writeHeader() {
 func (l *Logger) Write(p []byte) (n int, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	// Write timestamp and data
 	timestamp := time.Now().Format("15:04:05")
 	fmt.Fprintf(l.file, "[%s] ", timestamp)
@@ -76,7 +76,7 @@ func (l *Logger) WriteString(s string) (n int, err error) {
 func (l *Logger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	
+
 	if l.file != nil {
 		// Write footer
 		duration := time.Since(l.startTime)
@@ -84,7 +84,7 @@ func (l *Logger) Close() error {
 		fmt.Fprintf(l.file, "Finished: %s\n", time.Now().Format(time.RFC3339))
 		fmt.Fprintf(l.file, "Duration: %s\n", duration)
 		fmt.Fprintf(l.file, "========================\n")
-		
+
 		return l.file.Close()
 	}
 	return nil

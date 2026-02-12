@@ -41,7 +41,7 @@ func EnsureGitignore() error {
 	}
 
 	gitignorePath := filepath.Join(configDir, ".gitignore")
-	
+
 	// Check if .gitignore already exists
 	if _, err := os.Stat(gitignorePath); err == nil {
 		// File exists, check if logs/ is already in it
@@ -49,34 +49,34 @@ func EnsureGitignore() error {
 		if err != nil {
 			return err
 		}
-		
+
 		// If logs/ is already present, don't modify
 		contentStr := string(content)
-		if strings.Contains(contentStr, "logs/") || strings.Contains(contentStr, "logs\n") {
+		if strings.Contains(contentStr, "logs/") {
 			return nil
 		}
-		
+
 		// Append logs/ to existing .gitignore
 		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		
+
 		// Add newline if file doesn't end with one
 		if len(content) > 0 && content[len(content)-1] != '\n' {
 			if _, err := f.WriteString("\n"); err != nil {
 				return err
 			}
 		}
-		
+
 		if _, err := f.WriteString("logs/\n"); err != nil {
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	// Create new .gitignore
 	content := "# Ignore execution logs\nlogs/\n"
 	return os.WriteFile(gitignorePath, []byte(content), 0644)

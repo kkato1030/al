@@ -66,7 +66,7 @@ func NewSyncCmd() *cobra.Command {
 			}
 			// --plan takes precedence over --dry-run
 			isPlanMode := plan || dryRun
-			
+
 			// Create logger for sync operation (skip in plan mode)
 			var log *logger.Logger
 			if !isPlanMode {
@@ -84,13 +84,13 @@ func NewSyncCmd() *cobra.Command {
 					}
 				}
 			}
-			
+
 			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args, log)
-			
+
 			if log != nil {
 				log.Close()
 			}
-			
+
 			return err
 		},
 	}
@@ -119,10 +119,10 @@ func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool) er
 
 func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, args []string, log *logger.Logger) error {
 	if log != nil {
-		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v)\n", 
+		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v)\n",
 			dryRun, all, profileName, pkgOnly, linkOnly))
 	}
-	
+
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)

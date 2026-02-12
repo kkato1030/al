@@ -107,7 +107,7 @@ Profile が別の profile を継承する指定。例: `work` が `core.stable` 
 
 ### sync と backup
 
-- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。**`--plan` でドライラン（変更を適用せず、何が変更されるかをプレビュー）**。manual provider のパッケージがある場合は、インストールを促す警告を表示する。
+- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。**`--plan` でドライラン（変更を適用せず、何が変更されるかをプレビュー。パフォーマンスのため、アップグレード可能パッケージのチェックはスキップされる）**。manual provider のパッケージがある場合は、インストールを促す警告を表示する。
 - **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。
 
 ---
@@ -149,7 +149,7 @@ al update
 | `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
 | `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
-| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし）。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
+| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし、アップグレードチェックはスキップ）。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
 | `al update` | al 本体を最新版に更新 |
 | `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |

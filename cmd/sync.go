@@ -185,7 +185,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 					cache.isInstalled = providerInstalled
 				}
 
-				// If provider is installed, get all installed and upgradable packages
+				// If provider is installed, get all installed packages
+				// Note: We skip upgradable check in plan mode for performance
+				// (brew outdated can be very slow with many packages)
 				if cache.isInstalled {
 					installedPkgs, err := p.ListInstalled()
 					if err != nil {
@@ -195,13 +197,8 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 						cache.installedPkgs = installedPkgs
 					}
 
-					upgradablePkgs, err := p.ListUpgradable()
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to list upgradable packages for %s: %v\n", providerName, err)
-						cache.upgradablePkgs = make(map[string]bool)
-					} else {
-						cache.upgradablePkgs = upgradablePkgs
-					}
+					// Initialize empty upgradable map (skip check for performance)
+					cache.upgradablePkgs = make(map[string]bool)
 				}
 
 				providerCaches[providerName] = cache
@@ -236,6 +233,8 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			}
 
 			fmt.Println("\nPlan:")
+			fmt.Println("  (Upgrade checks skipped for performance)")
+			fmt.Println()
 
 			// Show providers to install
 			var providersNeeded []string

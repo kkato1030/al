@@ -12,6 +12,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         go-version: ['1.24', '1.25']

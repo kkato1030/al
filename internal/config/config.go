@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // GetConfigDir returns the configuration directory path.
@@ -30,6 +31,55 @@ func EnsureConfigDir() error {
 	}
 
 	return os.MkdirAll(configDir, 0755)
+}
+
+// EnsureGitignore creates a .gitignore file in the config directory if it doesn't exist
+func EnsureGitignore() error {
+	configDir, err := GetConfigDir()
+	if err != nil {
+		return err
+	}
+
+	gitignorePath := filepath.Join(configDir, ".gitignore")
+
+	// Check if .gitignore already exists
+	if _, err := os.Stat(gitignorePath); err == nil {
+		// File exists, check if logs/ is already in it
+		content, err := os.ReadFile(gitignorePath)
+		if err != nil {
+			return err
+		}
+
+		// If logs/ is already present, don't modify
+		contentStr := string(content)
+		if strings.Contains(contentStr, "logs/") {
+			return nil
+		}
+
+		// Append logs/ to existing .gitignore
+		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// Add newline if file doesn't end with one
+		if len(content) > 0 && content[len(content)-1] != '\n' {
+			if _, err := f.WriteString("\n"); err != nil {
+				return err
+			}
+		}
+
+		if _, err := f.WriteString("logs/\n"); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// Create new .gitignore
+	content := "# Ignore execution logs\nlogs/\n"
+	return os.WriteFile(gitignorePath, []byte(content), 0644)
 }
 
 // GetProvidersConfigPath returns the path to the providers.json file

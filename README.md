@@ -59,6 +59,7 @@ eval "$(al activate bash)"  # bash
 | shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al shell show/add/edit/remove/enable/disable` |
 | bootstrap | 新規 PC セットアップ用のワンオフシェルスクリプト（`~/.al/bootstrap/script.sh`） | `al bootstrap add/edit/remove/show` |
 | sync / backup | GitHub との clone 適用・push | `al sync [owner/repo]`, `al backup` |
+| 実行ログ | sync/upgrade の実行ログを自動保存・閲覧 | `al logs`, `al logs --list` |
 | Brewfile 取り込み | 既存 Brewfile を al の管理下に登録 | `al import Brewfile --prf <profile>` |
 | 設定 | デフォルト profile / provider / stage、バックアップ先、エイリアス | `al config set/show`, `al config alias list` |
 
@@ -153,6 +154,7 @@ al update
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
 | `al update` | al 本体を最新版に更新 |
 | `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |
+| `al logs` | 実行ログの一覧表示・閲覧。`--list` で最近のログを一覧、引数にログファイル名を指定すると閲覧。ログは `~/.al/logs/` に YYYYMMDD-HHMMSS.log 形式で保存される |
 | `al version` | バージョン表示 |
 
 ### エイリアス（`al config alias list` で一覧）
@@ -233,6 +235,20 @@ al update
 | `al bootstrap edit` | EDITOR でスクリプトを編集（未作成時は add と同様に作成してから開く） |
 | `al bootstrap remove` | スクリプトを削除 |
 | `al bootstrap show` | スクリプト内容を表示 |
+
+### al logs
+
+`al sync` や `al upgrade` の実行ログを管理。ログは `~/.al/logs/` に YYYYMMDD-HHMMSS.log 形式で保存され、実行コマンド・タイムスタンプ・標準出力・標準エラー出力が記録される。
+
+| サブコマンド | 説明 |
+|--------------|------|
+| `al logs` | 最新のログを開く |
+| `al logs --list` | 最近のログファイル一覧を表示（`-n` で件数指定、デフォルト 10） |
+| `al logs <ファイル名>` | 特定のログファイルを開く（例: `al logs 20260212-123456.log`） |
+
+**ログローテーション**: 新しいログが作成されるたびに、古いログは自動的に削除され、最新の 30 件のみが保持される。この動作により、ディスク容量が無制限に増加することを防ぐ。
+
+**注意**: ログディレクトリは `~/.al/.gitignore` に自動で追加されるため、`al backup` で GitHub に push されない。
 
 ---
 

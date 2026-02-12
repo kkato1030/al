@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	packagecmd "github.com/kkato1030/al/cmd/package"
 	providercmd "github.com/kkato1030/al/cmd/provider"
+	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +21,25 @@ func NewUpgradeCmd() *cobra.Command {
 		Short: "Upgrade all providers and packages",
 		Long:  "Upgrade all providers and packages. This is equivalent to running 'al provider upgrade' followed by 'al package upgrade'.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpgrade(yes)
+			// Create logger for upgrade operation
+			var log *logger.Logger
+			configDir, err := config.GetConfigDir()
+			if err == nil {
+				logsDir := logger.GetLogsDir(configDir)
+				log, err = logger.New(logsDir, "al upgrade")
+				if err != nil {
+					// Log creation failed, but don't fail the upgrade
+					fmt.Fprintf(os.Stderr, "Warning: failed to create log file: %v\n", err)
+				}
+			}
+
+			err = runUpgrade(yes, log)
+
+			if log != nil {
+				log.Close()
+			}
+
+			return err
 		},
 	}
 
@@ -27,35 +48,50 @@ func NewUpgradeCmd() *cobra.Command {
 	return cmd
 }
 
-func runUpgrade(yes bool) error {
+func runUpgrade(yes bool, log *logger.Logger) error {
+	// Helper to log and print
+	logPrintf := func(format string, args ...interface{}) {
+		msg := fmt.Sprintf(format, args...)
+		fmt.Print(msg)
+		if log != nil {
+			log.WriteString(msg)
+		}
+	}
+
 	// Ask for confirmation
 	if !yes {
-		fmt.Println("This will upgrade all providers and packages.")
-		fmt.Println("This is equivalent to:")
-		fmt.Println("  1. al provider upgrade")
-		fmt.Println("  2. al package upgrade")
-		fmt.Print("\nDo you want to continue? [y/N]: ")
+		logPrintf("This will upgrade all providers and packages.\n")
+		logPrintf("This is equivalent to:\n")
+		logPrintf("  1. al provider upgrade\n")
+		logPrintf("  2. al package upgrade\n")
+		logPrintf("\nDo you want to continue? [y/N]: ")
 		var response string
 		fmt.Scanln(&response)
+		if log != nil {
+			log.WriteString(response + "\n")
+		}
 		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			fmt.Println("Upgrade cancelled.")
+			logPrintf("Upgrade cancelled.\n")
 			return nil
 		}
 	}
 
 	// Upgrade all providers
-	fmt.Println()
+	logPrintf("\n")
 	if err := providercmd.RunProviderUpgradeAll(true); err != nil {
-		fmt.Printf("\nError upgrading providers: %v\n", err)
+		logPrintf("\nError upgrading providers: %v\n", err)
 		// Continue to package upgrade even if provider upgrade fails
 	}
 
 	// Upgrade all packages
-	fmt.Println()
+	logPrintf("\n")
 	if err := packagecmd.RunPackageUpgradeAll(true); err != nil {
+		if log != nil {
+			log.WriteString(fmt.Sprintf("error upgrading packages: %v\n", err))
+		}
 		return fmt.Errorf("error upgrading packages: %w", err)
 	}
 
-	fmt.Println("\n✓ All upgrades completed")
+	logPrintf("\n✓ All upgrades completed\n")
 	return nil
 }

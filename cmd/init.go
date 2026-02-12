@@ -27,6 +27,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
+	// Create .gitignore for logs directory
+	if err := config.EnsureGitignore(); err != nil {
+		fmt.Printf("Warning: failed to create .gitignore: %v\n", err)
+		// Don't fail init if .gitignore creation fails
+	}
+
 	// Get stable-trial template
 	template, err := config.GetTemplate("stable-trial")
 	if err != nil {

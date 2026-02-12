@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/logger"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/source"
 	"github.com/kkato1030/al/internal/ui"
@@ -22,6 +24,24 @@ func debugLog(format string, args ...interface{}) {
 		timestamp := time.Now().Format("15:04:05.000")
 		fmt.Fprintf(os.Stderr, "[DEBUG %s] ", timestamp)
 		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
+}
+
+// loggedPrintf prints to stdout and optionally to the logger
+func loggedPrintf(log *logger.Logger, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Print(msg)
+	if log != nil {
+		log.WriteString(msg)
+	}
+}
+
+// loggedFprintf prints to the specified writer and optionally to the logger
+func loggedFprintf(w io.Writer, log *logger.Logger, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprint(w, msg)
+	if log != nil {
+		log.WriteString(msg)
 	}
 }
 
@@ -46,7 +66,32 @@ func NewSyncCmd() *cobra.Command {
 			}
 			// --plan takes precedence over --dry-run
 			isPlanMode := plan || dryRun
-			return runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args)
+			
+			// Create logger for sync operation (skip in plan mode)
+			var log *logger.Logger
+			if !isPlanMode {
+				configDir, err := config.GetConfigDir()
+				if err == nil {
+					logsDir := logger.GetLogsDir(configDir)
+					cmdStr := "al sync"
+					if len(args) > 0 {
+						cmdStr += " " + strings.Join(args, " ")
+					}
+					log, err = logger.New(logsDir, cmdStr)
+					if err != nil {
+						// Log creation failed, but don't fail the sync
+						fmt.Fprintf(os.Stderr, "Warning: failed to create log file: %v\n", err)
+					}
+				}
+			}
+			
+			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args, log)
+			
+			if log != nil {
+				log.Close()
+			}
+			
+			return err
 		},
 	}
 
@@ -72,7 +117,12 @@ func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool) er
 	return nil
 }
 
-func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, args []string) error {
+func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, args []string, log *logger.Logger) error {
+	if log != nil {
+		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v)\n", 
+			dryRun, all, profileName, pkgOnly, linkOnly))
+	}
+	
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)
@@ -113,8 +163,14 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			}
 		}
 		fmt.Printf("Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir)
+		if log != nil {
+			log.WriteString(fmt.Sprintf("Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir))
+		}
 		if err := source.Clone(configDir, owner, repo); err != nil {
 			return fmt.Errorf("clone failed: %w", err)
+		}
+		if log != nil {
+			log.WriteString("Clone completed successfully\n")
 		}
 	}
 
@@ -470,6 +526,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 
 	fmt.Println("\nSync complete. Add the following to your shell config (.zshrc, .bashrc, etc.):")
 	fmt.Println(`  eval "$(al activate zsh)"  # or bash`)
+	if log != nil {
+		log.WriteString("\nSync completed successfully\n")
+	}
 	return nil
 }
 

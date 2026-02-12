@@ -123,3 +123,102 @@ func TestManualProvider_Methods(t *testing.T) {
 		t.Errorf("IsPackageUpgradable(%q) = true, want false", packageID)
 	}
 }
+
+// TestBrewProvider_ListInstalled tests the ListInstalled batch method
+func TestBrewProvider_ListInstalled(t *testing.T) {
+provider := NewBrewProvider()
+installed, err := provider.CheckInstalled()
+if err != nil {
+t.Fatalf("Failed to check if brew is installed: %v", err)
+}
+if !installed {
+t.Skip("Skipping test: brew is not installed")
+}
+
+packages, err := provider.ListInstalled()
+if err != nil {
+t.Errorf("ListInstalled() error = %v", err)
+}
+// Just ensure it returns without error
+t.Logf("ListInstalled() returned %d packages", len(packages))
+}
+
+// TestBrewProvider_ListUpgradable tests the ListUpgradable batch method
+func TestBrewProvider_ListUpgradable(t *testing.T) {
+provider := NewBrewProvider()
+installed, err := provider.CheckInstalled()
+if err != nil {
+t.Fatalf("Failed to check if brew is installed: %v", err)
+}
+if !installed {
+t.Skip("Skipping test: brew is not installed")
+}
+
+packages, err := provider.ListUpgradable()
+if err != nil {
+t.Errorf("ListUpgradable() error = %v", err)
+}
+// Just ensure it returns without error
+t.Logf("ListUpgradable() returned %d packages", len(packages))
+}
+
+// TestMasProvider_ListInstalled tests the ListInstalled batch method
+func TestMasProvider_ListInstalled(t *testing.T) {
+provider := NewMasProvider()
+installed, err := provider.CheckInstalled()
+if err != nil {
+t.Fatalf("Failed to check if mas is installed: %v", err)
+}
+if !installed {
+t.Skip("Skipping test: mas is not installed")
+}
+
+packages, err := provider.ListInstalled()
+if err != nil {
+t.Errorf("ListInstalled() error = %v", err)
+}
+// Just ensure it returns without error
+t.Logf("ListInstalled() returned %d packages", len(packages))
+}
+
+// TestMasProvider_ListUpgradable tests the ListUpgradable batch method
+func TestMasProvider_ListUpgradable(t *testing.T) {
+provider := NewMasProvider()
+installed, err := provider.CheckInstalled()
+if err != nil {
+t.Fatalf("Failed to check if mas is installed: %v", err)
+}
+if !installed {
+t.Skip("Skipping test: mas is not installed")
+}
+
+packages, err := provider.ListUpgradable()
+if err != nil {
+t.Errorf("ListUpgradable() error = %v", err)
+}
+// Just ensure it returns without error
+t.Logf("ListUpgradable() returned %d packages", len(packages))
+}
+
+// TestManualProvider_BatchMethods tests the batch methods for manual provider
+func TestManualProvider_BatchMethods(t *testing.T) {
+provider := NewManualProvider()
+
+// ListInstalled should return empty map
+installed, err := provider.ListInstalled()
+if err != nil {
+t.Errorf("ListInstalled() error = %v", err)
+}
+if len(installed) != 0 {
+t.Errorf("ListInstalled() returned %d packages, want 0", len(installed))
+}
+
+// ListUpgradable should return empty map
+upgradable, err := provider.ListUpgradable()
+if err != nil {
+t.Errorf("ListUpgradable() error = %v", err)
+}
+if len(upgradable) != 0 {
+t.Errorf("ListUpgradable() returned %d packages, want 0", len(upgradable))
+}
+}

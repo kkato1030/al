@@ -461,3 +461,116 @@ func (p *BrewProvider) IsPackageUpgradable(packageID string) (bool, error) {
 	// If output contains the package name, it's upgradable
 	return strings.Contains(string(output), pkgName), nil
 }
+
+// ListInstalled returns a set of all installed brew packages
+func (p *BrewProvider) ListInstalled() (map[string]bool, error) {
+	installed := make(map[string]bool)
+
+	// Check if brew is installed
+	brewInstalled, err := p.CheckInstalled()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !brewInstalled {
+		return installed, nil
+	}
+
+	// Get all installed formulas
+	formulaCmd := exec.Command("brew", "list", "--formula")
+	formulaOutput, err := formulaCmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(formulaOutput)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				// Store as "formula:name"
+				installed["formula:"+line] = true
+				// Also store without prefix for backward compatibility
+				installed[line] = true
+			}
+		}
+	}
+
+	// Get all installed casks
+	caskCmd := exec.Command("brew", "list", "--cask")
+	caskOutput, err := caskCmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(caskOutput)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				// Store as "cask:name"
+				installed["cask:"+line] = true
+			}
+		}
+	}
+
+	// Get all tapped repos
+	tapCmd := exec.Command("brew", "tap")
+	tapOutput, err := tapCmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(tapOutput)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				// Store as "tap:name"
+				installed["tap:"+line] = true
+			}
+		}
+	}
+
+	return installed, nil
+}
+
+// ListUpgradable returns a set of all upgradable brew packages
+func (p *BrewProvider) ListUpgradable() (map[string]bool, error) {
+	upgradable := make(map[string]bool)
+
+	// Check if brew is installed
+	brewInstalled, err := p.CheckInstalled()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check brew installation: %w", err)
+	}
+	if !brewInstalled {
+		return upgradable, nil
+	}
+
+	// Get all outdated formulas
+	formulaCmd := exec.Command("brew", "outdated", "--formula")
+	formulaOutput, err := formulaCmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(formulaOutput)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				// Parse format: "package (version) < version"
+				fields := strings.Fields(line)
+				if len(fields) > 0 {
+					pkgName := fields[0]
+					upgradable["formula:"+pkgName] = true
+					upgradable[pkgName] = true
+				}
+			}
+		}
+	}
+
+	// Get all outdated casks
+	caskCmd := exec.Command("brew", "outdated", "--cask")
+	caskOutput, err := caskCmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(caskOutput)), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				// Parse format similar to formulas
+				fields := strings.Fields(line)
+				if len(fields) > 0 {
+					pkgName := fields[0]
+					upgradable["cask:"+pkgName] = true
+				}
+			}
+		}
+	}
+
+	return upgradable, nil
+}

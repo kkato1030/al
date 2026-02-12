@@ -41,4 +41,12 @@ type Provider interface {
 
 	// IsPackageUpgradable checks if a package has an available upgrade
 	IsPackageUpgradable(packageID string) (bool, error)
+
+	// ListInstalled returns a set of all installed package IDs
+	// This is more efficient than calling IsPackageInstalled for many packages
+	ListInstalled() (map[string]bool, error)
+
+	// ListUpgradable returns a set of all upgradable package IDs
+	// This is more efficient than calling IsPackageUpgradable for many packages
+	ListUpgradable() (map[string]bool, error)
 }

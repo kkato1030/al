@@ -145,48 +145,92 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			var toUpgrade []config.PackageConfig
 			var manualPackages []config.PackageConfig
 
+			// Cache provider status and package lists per provider
+			type providerCache struct {
+				provider       provider.Provider
+				isInstalled    bool
+				installedPkgs  map[string]bool
+				upgradablePkgs map[string]bool
+			}
+			providerCaches := make(map[string]*providerCache)
+
+			// First pass: collect packages by provider
+			packagesByProvider := make(map[string][]config.PackageConfig)
 			for _, pkg := range packagesCfg.Packages {
 				if !syncTargetSet[pkg.Profile] {
 					continue
 				}
-
 				if pkg.Provider == "manual" {
 					manualPackages = append(manualPackages, pkg)
 					continue
 				}
+				packagesByProvider[pkg.Provider] = append(packagesByProvider[pkg.Provider], pkg)
+			}
 
-				p := getProvider(pkg.Provider)
+			// Second pass: check each provider once and build caches
+			for providerName := range packagesByProvider {
+				p := getProvider(providerName)
 				if p == nil {
 					continue
 				}
 
+				cache := &providerCache{provider: p}
+
 				// Check if provider is installed
 				providerInstalled, err := p.CheckInstalled()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", pkg.Provider, err)
-					toInstall = append(toInstall, pkg)
-					continue
-				}
-				if !providerInstalled {
-					toInstall = append(toInstall, pkg)
-					continue
-				}
-
-				// Check package status
-				pkgInstalled, err := p.IsPackageInstalled(pkg.ID)
-				if err != nil {
-					// If we can't check, assume it needs install
-					toInstall = append(toInstall, pkg)
-					continue
-				}
-
-				if !pkgInstalled {
-					toInstall = append(toInstall, pkg)
+					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", providerName, err)
+					cache.isInstalled = false
 				} else {
-					// Check if upgradable
-					upgradable, err := p.IsPackageUpgradable(pkg.ID)
-					if err == nil && upgradable {
-						toUpgrade = append(toUpgrade, pkg)
+					cache.isInstalled = providerInstalled
+				}
+
+				// If provider is installed, get all installed and upgradable packages
+				if cache.isInstalled {
+					installedPkgs, err := p.ListInstalled()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to list installed packages for %s: %v\n", providerName, err)
+						cache.installedPkgs = make(map[string]bool)
+					} else {
+						cache.installedPkgs = installedPkgs
+					}
+
+					upgradablePkgs, err := p.ListUpgradable()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to list upgradable packages for %s: %v\n", providerName, err)
+						cache.upgradablePkgs = make(map[string]bool)
+					} else {
+						cache.upgradablePkgs = upgradablePkgs
+					}
+				}
+
+				providerCaches[providerName] = cache
+			}
+
+			// Third pass: categorize each package
+			for providerName, packages := range packagesByProvider {
+				cache, ok := providerCaches[providerName]
+				if !ok || cache.provider == nil {
+					// Provider not available, mark all packages for install
+					toInstall = append(toInstall, packages...)
+					continue
+				}
+
+				if !cache.isInstalled {
+					// Provider not installed, all packages need install
+					toInstall = append(toInstall, packages...)
+					continue
+				}
+
+				for _, pkg := range packages {
+					if cache.installedPkgs[pkg.ID] {
+						// Package is installed, check if upgradable
+						if cache.upgradablePkgs[pkg.ID] {
+							toUpgrade = append(toUpgrade, pkg)
+						}
+					} else {
+						// Package not installed
+						toInstall = append(toInstall, pkg)
 					}
 				}
 			}

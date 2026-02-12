@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // GetConfigDir returns the configuration directory path.
@@ -51,7 +52,7 @@ func EnsureGitignore() error {
 		
 		// If logs/ is already present, don't modify
 		contentStr := string(content)
-		if filepath.Base(contentStr) == "logs/" || filepath.Base(contentStr) == "logs" {
+		if strings.Contains(contentStr, "logs/") || strings.Contains(contentStr, "logs\n") {
 			return nil
 		}
 		

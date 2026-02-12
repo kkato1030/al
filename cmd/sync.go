@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
@@ -15,9 +16,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// debugLog prints debug messages if AL_DEBUG environment variable is set
+func debugLog(format string, args ...interface{}) {
+	if os.Getenv("AL_DEBUG") != "" {
+		timestamp := time.Now().Format("15:04:05.000")
+		fmt.Fprintf(os.Stderr, "[DEBUG %s] ", timestamp)
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
+}
+
 // NewSyncCmd creates the sync command
 func NewSyncCmd() *cobra.Command {
 	var dryRun bool
+	var plan bool
 	var all bool
 	var profile string
 	var private bool
@@ -27,17 +38,20 @@ func NewSyncCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync [owner/repo]",
 		Short: "Sync al environment: clone ~/.al if needed, then apply providers, packages, and links",
-		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning.",
+		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly); err != nil {
 				return err
 			}
-			return runSync(dryRun, all, profile, private, pkgOnly, linkOnly, args)
+			// --plan takes precedence over --dry-run
+			isPlanMode := plan || dryRun
+			return runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args)
 		},
 	}
 
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
+	cmd.Flags().BoolVar(&plan, "plan", false, "Preview what would be done without making changes")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes (alias for --plan)")
 	cmd.Flags().BoolVar(&all, "all", false, "Sync all profiles with AutoSync enabled")
 	cmd.Flags().StringVar(&profile, "profile", "", "Sync only this profile and its extends (overrides AutoSync)")
 	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
@@ -129,25 +143,218 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 	}
 
 	if dryRun {
+		debugLog("Starting plan mode")
 		if doPackages {
-			fmt.Printf("[dry-run] Sync target profiles: %v\n", syncTargetNames)
-			packagesCfg, _ := config.LoadPackagesConfig()
-			var count int
+			debugLog("Loading packages configuration")
+			fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+			packagesCfg, err := config.LoadPackagesConfig()
+			if err != nil {
+				return fmt.Errorf("load packages: %w", err)
+			}
+			debugLog("Loaded %d packages from config", len(packagesCfg.Packages))
+
+			// Track packages by status
+			var toInstall []config.PackageConfig
+			var toUpgrade []config.PackageConfig
+			var manualPackages []config.PackageConfig
+
+			// Cache provider status and package lists per provider
+			type providerCache struct {
+				provider       provider.Provider
+				isInstalled    bool
+				installedPkgs  map[string]bool
+				upgradablePkgs map[string]bool
+			}
+			providerCaches := make(map[string]*providerCache)
+
+			// First pass: collect packages by provider
+			debugLog("Collecting packages by provider")
+			packagesByProvider := make(map[string][]config.PackageConfig)
 			for _, pkg := range packagesCfg.Packages {
-				if syncTargetSet[pkg.Profile] {
-					count++
+				if !syncTargetSet[pkg.Profile] {
+					continue
+				}
+				if pkg.Provider == "manual" {
+					manualPackages = append(manualPackages, pkg)
+					continue
+				}
+				packagesByProvider[pkg.Provider] = append(packagesByProvider[pkg.Provider], pkg)
+			}
+			debugLog("Packages by provider: %v", func() map[string]int {
+				counts := make(map[string]int)
+				for p, pkgs := range packagesByProvider {
+					counts[p] = len(pkgs)
+				}
+				return counts
+			}())
+
+			// Second pass: check each provider once and build caches
+			debugLog("Checking providers and building caches")
+			for providerName := range packagesByProvider {
+				debugLog("Processing provider: %s", providerName)
+				startTime := time.Now()
+
+				p := getProvider(providerName)
+				if p == nil {
+					debugLog("Provider %s not available", providerName)
+					continue
+				}
+
+				cache := &providerCache{provider: p}
+
+				// Check if provider is installed
+				debugLog("Checking if provider %s is installed", providerName)
+				checkStart := time.Now()
+				providerInstalled, err := p.CheckInstalled()
+				debugLog("Provider %s CheckInstalled took %v", providerName, time.Since(checkStart))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", providerName, err)
+					cache.isInstalled = false
+				} else {
+					cache.isInstalled = providerInstalled
+					debugLog("Provider %s installed: %v", providerName, providerInstalled)
+				}
+
+				// If provider is installed, get all installed and upgradable packages
+				if cache.isInstalled {
+					debugLog("Listing installed packages for %s", providerName)
+					listStart := time.Now()
+					installedPkgs, err := p.ListInstalled()
+					debugLog("Provider %s ListInstalled took %v (returned %d packages)", providerName, time.Since(listStart), len(installedPkgs))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to list installed packages for %s: %v\n", providerName, err)
+						cache.installedPkgs = make(map[string]bool)
+					} else {
+						cache.installedPkgs = installedPkgs
+					}
+
+					debugLog("Listing upgradable packages for %s", providerName)
+					upgradeStart := time.Now()
+					upgradablePkgs, err := p.ListUpgradable()
+					debugLog("Provider %s ListUpgradable took %v (returned %d packages)", providerName, time.Since(upgradeStart), len(upgradablePkgs))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to list upgradable packages for %s: %v\n", providerName, err)
+						cache.upgradablePkgs = make(map[string]bool)
+					} else {
+						cache.upgradablePkgs = upgradablePkgs
+					}
+				} else {
+					debugLog("Provider %s not installed, skipping package checks", providerName)
+				}
+
+				providerCaches[providerName] = cache
+				debugLog("Finished processing provider %s in %v", providerName, time.Since(startTime))
+			}
+
+			// Third pass: categorize each package
+			debugLog("Categorizing packages")
+			for providerName, packages := range packagesByProvider {
+				cache, ok := providerCaches[providerName]
+				if !ok || cache.provider == nil {
+					// Provider not available, mark all packages for install
+					debugLog("Provider %s not available, marking %d packages for install", providerName, len(packages))
+					toInstall = append(toInstall, packages...)
+					continue
+				}
+
+				if !cache.isInstalled {
+					// Provider not installed, all packages need install
+					debugLog("Provider %s not installed, marking %d packages for install", providerName, len(packages))
+					toInstall = append(toInstall, packages...)
+					continue
+				}
+
+				for _, pkg := range packages {
+					if cache.installedPkgs[pkg.ID] {
+						// Package is installed, check if upgradable
+						if cache.upgradablePkgs[pkg.ID] {
+							debugLog("Package %s is upgradable", pkg.Name)
+							toUpgrade = append(toUpgrade, pkg)
+						} else {
+							debugLog("Package %s is already installed and up-to-date", pkg.Name)
+						}
+					} else {
+						// Package not installed
+						debugLog("Package %s needs to be installed", pkg.Name)
+						toInstall = append(toInstall, pkg)
+					}
 				}
 			}
-			fmt.Printf("[dry-run] Would ensure providers and install %d package(s)\n", count)
+
+			debugLog("Categorization complete: %d to install, %d to upgrade, %d manual", len(toInstall), len(toUpgrade), len(manualPackages))
+
+			fmt.Println("\nPlan:")
+
+			// Show providers to install
+			var providersNeeded []string
+			for _, pkg := range packagesCfg.Packages {
+				if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
+					providersNeeded = append(providersNeeded, pkg.Provider)
+				}
+			}
+			orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to resolve provider dependencies: %v\n", err)
+				orderedProviders = providersNeeded
+			}
+			for _, name := range orderedProviders {
+				p := getProvider(name)
+				if p == nil {
+					continue
+				}
+				installed, err := p.CheckInstalled()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", name, err)
+					continue
+				}
+				if !installed {
+					fmt.Printf("  + provider %s\n", name)
+				}
+			}
+
+			// Show packages to install
+			if len(toInstall) > 0 {
+				for _, pkg := range toInstall {
+					fmt.Printf("  + %s %s\n", pkg.Provider, pkg.Name)
+				}
+			}
+
+			// Show packages to upgrade
+			if len(toUpgrade) > 0 {
+				for _, pkg := range toUpgrade {
+					fmt.Printf("  ~ %s %s (upgrade)\n", pkg.Provider, pkg.Name)
+				}
+			}
+
+			// Show manual packages
+			if len(manualPackages) > 0 {
+				fmt.Println("\n  Manual packages (ensure they are installed):")
+				for _, pkg := range manualPackages {
+					fmt.Printf("    - %s\n", pkg.Name)
+				}
+			}
 		}
+
 		if doLinks {
-			links, _ := config.ListLinks("", "")
-			fmt.Printf("[dry-run] Would apply %d link(s)\n", len(links))
+			links, err := config.ListLinks("", "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to list links: %v\n", err)
+			} else if len(links) > 0 {
+				fmt.Println("\n  Links:")
+				for _, link := range links {
+					fmt.Printf("  + link %s\n", link.Manifest.UserPath)
+				}
+			}
 		}
-		exists, _ := config.BootstrapScriptExists()
-		if exists {
-			fmt.Println("[dry-run] Would run bootstrap script at the end")
+
+		exists, err := config.BootstrapScriptExists()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to check for bootstrap script: %v\n", err)
+		} else if exists {
+			fmt.Println("\n  + bootstrap script")
 		}
+
+		fmt.Println("\nNo changes will be made in plan mode.")
 		return nil
 	}
 

@@ -98,3 +98,30 @@ func (p *ManualProvider) SearchPackage(query string) ([]SearchResult, error) {
 	// Manual provider doesn't support searching
 	return []SearchResult{}, nil
 }
+
+// IsPackageInstalled always returns false for manual provider
+// Manual packages are assumed to exist but we cannot check their status
+func (p *ManualProvider) IsPackageInstalled(packageID string) (bool, error) {
+	// Manual provider cannot verify installation status
+	// Assume not installed so it shows in plan mode
+	return false, nil
+}
+
+// IsPackageUpgradable always returns false for manual provider
+// Manual packages don't have automatic upgrade checking
+func (p *ManualProvider) IsPackageUpgradable(packageID string) (bool, error) {
+	// Manual provider cannot check upgrade status
+	return false, nil
+}
+
+// ListInstalled returns an empty set for manual provider
+func (p *ManualProvider) ListInstalled() (map[string]bool, error) {
+	// Manual provider cannot verify installation status
+	return make(map[string]bool), nil
+}
+
+// ListUpgradable returns an empty set for manual provider
+func (p *ManualProvider) ListUpgradable() (map[string]bool, error) {
+	// Manual provider cannot check upgrade status
+	return make(map[string]bool), nil
+}

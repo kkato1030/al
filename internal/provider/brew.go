@@ -132,9 +132,11 @@ func (p *BrewProvider) parsePackageID(packageID string) (pkgType, pkgName string
 func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
 	// Check if it's a formula from a tap (3 parts: owner/repo/formula)
 	// This needs to be checked first before trying brew info, as the tap might not be installed yet
+	// Note: We assume any 3-part name follows Homebrew's owner/repo/formula convention.
+	// If the tap doesn't exist, brew will provide a clear error message during installation.
 	slashCount := strings.Count(packageName, "/")
 	if slashCount == 2 {
-		// This is a formula from a tap (e.g., entireio/tap/entire)
+		// This is a formula from a tap (e.g., entireio/tap/entire or homebrew/cask-versions/firefox-esr)
 		return "formula", nil
 	}
 
@@ -154,7 +156,7 @@ func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
 
 	// Try tap: "user/repo" is a tap name (installed or not)
 	if slashCount == 1 {
-		// This is a tap (e.g., entireio/tap)
+		// This is a tap (e.g., entireio/tap or homebrew/cask-versions)
 		// Check if tap is already installed
 		cmd = exec.Command("brew", "tap-info", packageName)
 		err = cmd.Run()
@@ -171,6 +173,8 @@ func (p *BrewProvider) detectPackageType(packageName string) (string, error) {
 			return "tap", nil
 		}
 	}
+	// Note: For names with > 2 slashes, we fall through to default (formula)
+	// This handles edge cases gracefully by letting brew handle the error
 
 	// Default to formula if cannot determine
 	return "formula", nil

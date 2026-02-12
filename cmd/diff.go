@@ -11,79 +11,40 @@ import (
 
 // NewDiffCmd creates the diff command
 func NewDiffCmd() *cobra.Command {
-	var all bool
-	var profile string
-
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show differences between desired state (profiles) and current state (system)",
-		Long: `Compare installed packages and configuration with the desired state defined in profiles.
+		Long: `Compare installed packages and configuration with the desired state defined in all profiles.
 Shows:
   + packages that need to be installed
   ~ packages that have upgrades available
   - packages that are installed but not in any profile
 
-Defaults to checking the "core" profile. Use --all to check all AutoSync-enabled profiles, 
-or --profile <name> to check a specific profile.
+Compares against all packages defined across all profiles.
 Exit code is non-zero when drift exists.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if all && profile != "" {
-				return fmt.Errorf("cannot use --all and --profile together")
-			}
-			return runDiff(all, profile)
+			return runDiff()
 		},
 	}
-
-	cmd.Flags().BoolVar(&all, "all", false, "Check all profiles with AutoSync enabled")
-	cmd.Flags().StringVar(&profile, "profile", "", "Check only this profile and its extends")
-	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
 
 	return cmd
 }
 
-func runDiff(all bool, profileName string) error {
+func runDiff() error {
 	// Load profiles config
 	profilesCfg, err := config.LoadProfilesConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load profiles: %w", err)
 	}
 
-	// Determine target profiles
-	var syncTargetNames []string
-	if profileName != "" {
-		// Specific profile requested - resolve profile and all its extends
-		extends, err := config.ResolveProfileWithExtends(profileName)
-		if err != nil {
-			return fmt.Errorf("failed to resolve profile extends: %w", err)
-		}
-		syncTargetNames = extends
-	} else if all {
-		// All AutoSync profiles
-		for _, p := range profilesCfg.Profiles {
-			if p.AutoSync != nil && *p.AutoSync {
-				syncTargetNames = append(syncTargetNames, p.Name)
-			}
-		}
-		if len(syncTargetNames) == 0 {
-			return fmt.Errorf("no profiles have AutoSync enabled")
-		}
-	} else {
-		// Default: check "core" profile
-		extends, err := config.ResolveProfileWithExtends("core")
-		if err != nil {
-			return fmt.Errorf("failed to resolve core profile: %w. Use --profile or --all flag", err)
-		}
-		syncTargetNames = extends
+	// Get all profile names for display
+	var allProfileNames []string
+	for _, p := range profilesCfg.Profiles {
+		allProfileNames = append(allProfileNames, p.Name)
 	}
 
-	// Build set for quick lookup
-	syncTargetSet := make(map[string]bool)
-	for _, name := range syncTargetNames {
-		syncTargetSet[name] = true
-	}
-
-	fmt.Printf("Checking profiles: %v\n", syncTargetNames)
+	fmt.Printf("Checking all profiles: %v\n", allProfileNames)
 
 	// Load packages config
 	packagesCfg, err := config.LoadPackagesConfig()
@@ -106,12 +67,9 @@ func runDiff(all bool, profileName string) error {
 	}
 	providerCaches := make(map[string]*providerCache)
 
-	// First pass: collect packages by provider
+	// First pass: collect all packages by provider (no profile filtering)
 	packagesByProvider := make(map[string][]config.PackageConfig)
 	for _, pkg := range packagesCfg.Packages {
-		if !syncTargetSet[pkg.Profile] {
-			continue
-		}
 		if pkg.Provider == "manual" {
 			manualPackages = append(manualPackages, pkg)
 			continue

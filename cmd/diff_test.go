@@ -18,81 +18,30 @@ func TestNewDiffCmd(t *testing.T) {
 		t.Error("Short description is empty")
 	}
 
-	// Check that flags are registered
+	// Check that no profile-specific flags are registered (we compare against all profiles now)
 	flags := cmd.Flags()
 	if flags == nil {
 		t.Fatal("Flags() returned nil")
 	}
 
-	// Check --all flag
-	allFlag := flags.Lookup("all")
-	if allFlag == nil {
-		t.Error("--all flag not registered")
+	// These flags should no longer exist
+	if flags.Lookup("all") != nil {
+		t.Error("--all flag should not be registered")
 	}
-
-	// Check --profile flag
-	profileFlag := flags.Lookup("profile")
-	if profileFlag == nil {
-		t.Error("--profile flag not registered")
+	if flags.Lookup("profile") != nil {
+		t.Error("--profile flag should not be registered")
 	}
-
-	// Check --prf flag (alias)
-	prfFlag := flags.Lookup("prf")
-	if prfFlag == nil {
-		t.Error("--prf flag not registered")
+	if flags.Lookup("prf") != nil {
+		t.Error("--prf flag should not be registered")
 	}
 }
 
-func TestDiffFlagValidation(t *testing.T) {
-	tests := []struct {
-		name        string
-		args        []string
-		expectError bool
-	}{
-		{
-			name:        "no flags",
-			args:        []string{},
-			expectError: false,
-		},
-		{
-			name:        "all flag only",
-			args:        []string{"--all"},
-			expectError: false,
-		},
-		{
-			name:        "profile flag only",
-			args:        []string{"--profile", "dev"},
-			expectError: false,
-		},
-		{
-			name:        "prf flag only",
-			args:        []string{"--prf", "dev"},
-			expectError: false,
-		},
-		{
-			name:        "both all and profile flags - should error",
-			args:        []string{"--all", "--profile", "dev"},
-			expectError: true,
-		},
-		{
-			name:        "both all and prf flags - should error",
-			args:        []string{"--all", "--prf", "dev"},
-			expectError: true,
-		},
-	}
+func TestDiffExecution(t *testing.T) {
+	// Simple test to ensure the command can be created and executed
+	// without crashing (it will fail due to missing config, which is expected)
+	cmd := NewDiffCmd()
+	cmd.SetArgs([]string{})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewDiffCmd()
-			cmd.SetArgs(tt.args)
-			err := cmd.Execute()
-
-			// We can't fully test execution without a real config, but we can test flag parsing
-			// The error check here is mainly for conflicting flags
-			hasError := err != nil
-			if tt.expectError && !hasError {
-				t.Errorf("Expected error for args %v, but got none", tt.args)
-			}
-		})
-	}
+	// Execute will fail due to missing config, but should not panic
+	_ = cmd.Execute()
 }

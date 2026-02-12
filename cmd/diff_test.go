@@ -144,3 +144,48 @@ func TestCalculateDiff_UpgradableTapFormula(t *testing.T) {
 		t.Errorf("Expected upgrade 'formula:entireio/tap/entire', got '%s'", result.upgrades[0].id)
 	}
 }
+
+func TestCalculateDiff_TapCasks(t *testing.T) {
+	// Test case: tap casks should match their short names in installed packages
+	// This handles cases like entireio/tap/entire which is a cask from a tap
+	desired := map[string]packageDiff{
+		"formula:entireio/tap/entire": {
+			provider: "brew",
+			name:     "entire",
+			id:       "formula:entireio/tap/entire",
+		},
+		"cask:somevendor/tap/sometool": {
+			provider: "brew",
+			name:     "sometool",
+			id:       "cask:somevendor/tap/sometool",
+		},
+	}
+
+	// Simulate what brew list returns
+	// The tap package might be installed as a cask even if desired as formula
+	installed := map[string]bool{
+		"entire":        true, // short name from tap (installed as cask)
+		"cask:entire":   true, // we store both
+		"sometool":      true, // short name from tap cask
+		"cask:sometool": true, // we store both
+	}
+
+	upgradable := map[string]bool{}
+
+	result := calculateDiff(desired, installed, upgradable)
+
+	// Should have no additions (packages are installed, even if type differs)
+	if len(result.additions) != 0 {
+		t.Errorf("Expected 0 additions, got %d: %+v", len(result.additions), result.additions)
+	}
+
+	// Should have no removals (all installed packages map to desired tap packages)
+	if len(result.removals) != 0 {
+		t.Errorf("Expected 0 removals, got %d: %+v", len(result.removals), result.removals)
+	}
+
+	// Should have no upgrades
+	if len(result.upgrades) != 0 {
+		t.Errorf("Expected 0 upgrades, got %d: %+v", len(result.upgrades), result.upgrades)
+	}
+}

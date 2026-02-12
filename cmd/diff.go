@@ -262,20 +262,33 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 		upgrades:  []packageDiff{},
 	}
 
-	// Build a map of short names to full tap package IDs for formulas from taps
-	// This helps us match "entire" with "formula:entireio/tap/entire"
+	// Build a map of short names to full tap package IDs for packages from taps
+	// This helps us match "entire" with "formula:entireio/tap/entire" or "cask:entireio/tap/entire"
+	// Note: We map both "formula:shortname" and "cask:shortname" to the same tap package ID
+	// because a tap package might be installed as either type
 	shortNameToFullID := make(map[string]string)
 	for id, pkg := range desired {
-		if pkg.provider == "brew" && strings.HasPrefix(id, "formula:") {
-			fullName := strings.TrimPrefix(id, "formula:")
-			// Check if it's a tap formula (has 2 slashes: owner/repo/name)
+		if pkg.provider == "brew" {
+			var fullName string
+
+			if strings.HasPrefix(id, "formula:") {
+				fullName = strings.TrimPrefix(id, "formula:")
+			} else if strings.HasPrefix(id, "cask:") {
+				fullName = strings.TrimPrefix(id, "cask:")
+			} else {
+				continue
+			}
+
+			// Check if it's a tap package (has 2 slashes: owner/repo/name)
 			if strings.Count(fullName, "/") == 2 {
 				// Extract the short name (last part after the last slash)
 				parts := strings.Split(fullName, "/")
 				if len(parts) == 3 {
 					shortName := parts[2]
+					// Map all variations (bare, formula:, cask:) to this tap package
 					shortNameToFullID[shortName] = id
 					shortNameToFullID["formula:"+shortName] = id
+					shortNameToFullID["cask:"+shortName] = id
 				}
 			}
 		}
@@ -286,20 +299,33 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 		isInstalled := installed[id]
 		isUpgradable := upgradable[id]
 
-		// For tap formulas, also check if the short name is installed/upgradable
-		if pkg.provider == "brew" && strings.HasPrefix(id, "formula:") {
-			fullName := strings.TrimPrefix(id, "formula:")
-			if strings.Count(fullName, "/") == 2 {
+		// For tap packages (formulas or casks), also check if the short name is installed/upgradable
+		// Note: A tap package might be stored as "formula:owner/tap/name" but installed as a cask,
+		// or vice versa. We check both possibilities.
+		if pkg.provider == "brew" {
+			var fullName string
+
+			if strings.HasPrefix(id, "formula:") {
+				fullName = strings.TrimPrefix(id, "formula:")
+			} else if strings.HasPrefix(id, "cask:") {
+				fullName = strings.TrimPrefix(id, "cask:")
+			}
+
+			if fullName != "" && strings.Count(fullName, "/") == 2 {
 				parts := strings.Split(fullName, "/")
 				if len(parts) == 3 {
 					shortName := parts[2]
-					// Check if the short name is installed
-					if !isInstalled && (installed[shortName] || installed["formula:"+shortName]) {
-						isInstalled = true
+					// Check if the short name is installed as either formula or cask
+					if !isInstalled {
+						if installed[shortName] || installed["formula:"+shortName] || installed["cask:"+shortName] {
+							isInstalled = true
+						}
 					}
 					// Check if the short name is upgradable
-					if !isUpgradable && (upgradable[shortName] || upgradable["formula:"+shortName]) {
-						isUpgradable = true
+					if !isUpgradable {
+						if upgradable[shortName] || upgradable["formula:"+shortName] || upgradable["cask:"+shortName] {
+							isUpgradable = true
+						}
 					}
 				}
 			}
@@ -346,6 +372,13 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 		} else if strings.HasPrefix(id, "cask:") {
 			providerName = "brew"
 			name = strings.TrimPrefix(id, "cask:")
+
+			// Check if this short name corresponds to a tap cask
+			if fullID, ok := shortNameToFullID["cask:"+name]; ok {
+				if _, inDesired := desired[fullID]; inDesired {
+					continue // This is a tap cask that's in desired state
+				}
+			}
 		} else if strings.Contains(id, ":") {
 			// Skip prefixed IDs that are already handled
 			continue

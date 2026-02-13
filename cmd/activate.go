@@ -12,8 +12,8 @@ import (
 func NewActivateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "activate [shell]",
-		Short: "Output shell code to source shell.d snippets and brew/mas hooks",
-		Long:  "Output shell code to source enabled shell.d snippets in topological order and to wrap brew/mas for install/uninstall (prompts to use al). Add eval \"$(al activate zsh)\" to your .zshrc (al does not edit .zshrc).",
+		Short: "Output shell code to initialize brew and source shell.d snippets",
+		Long:  "Output shell code to initialize Homebrew (brew shellenv), source enabled shell.d snippets in topological order, and wrap brew/mas for install/uninstall (prompts to use al). Add eval \"$(al activate zsh)\" to your .zshrc (al does not edit .zshrc).",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runActivate,
 	}
@@ -35,7 +35,11 @@ func runActivate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	// Output brew/mas hook first (wraps install/uninstall to suggest al)
+	// Output brew shellenv initialization first
+	if init := brewShellenvInit(shell); init != "" {
+		fmt.Print(init)
+	}
+	// Output brew/mas hook (wraps install/uninstall to suggest al)
 	if hook := brewMasHook(shell); hook != "" {
 		fmt.Print(hook)
 	}
@@ -51,6 +55,15 @@ func runActivate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func brewShellenvInit(shell string) string {
+	switch shell {
+	case "zsh", "bash":
+		return brewShellenvInitScript
+	default:
+		return ""
+	}
+}
+
 func brewMasHook(shell string) string {
 	switch shell {
 	case "zsh":
@@ -61,6 +74,17 @@ func brewMasHook(shell string) string {
 		return ""
 	}
 }
+
+// brewShellenvInitScript initializes Homebrew environment.
+// Supports both Apple Silicon (/opt/homebrew) and Intel Mac (/usr/local) installations.
+const brewShellenvInitScript = `
+# Initialize Homebrew
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+`
 
 // brewMasHookZsh wraps brew and mas for zsh (install/uninstall → suggest al, [y/N] to run directly).
 const brewMasHookZsh = `

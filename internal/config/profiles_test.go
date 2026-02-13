@@ -411,6 +411,15 @@ func TestSortProfilesForDisplay(t *testing.T) {
 			},
 			want: []string{"alpha", "Beta", "Work"},
 		},
+		{
+			name: "case insensitive stage comparison within same group",
+			input: []ProfileConfig{
+				{Name: "work.Trial"},
+				{Name: "work.Stable"},
+				{Name: "work"},
+			},
+			want: []string{"work", "work.Stable", "work.Trial"},
+		},
 	}
 
 	for _, tt := range tests {

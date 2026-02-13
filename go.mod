@@ -3,6 +3,7 @@ module github.com/kkato1030/al
 go 1.25.5
 
 require (
+	github.com/briandowns/spinner v1.23.2
 	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/term v0.6.0
@@ -11,8 +12,10 @@ require (
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
+	github.com/fatih/color v1.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect

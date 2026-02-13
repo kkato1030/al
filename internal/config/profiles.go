@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -315,4 +316,77 @@ func GetSyncTargetProfileNames(mode string, profileName string) ([]string, error
 	default:
 		return nil, fmt.Errorf("invalid sync mode: %s", mode)
 	}
+}
+
+// SortProfilesForDisplay sorts profiles for display in the following order:
+// 1. Group by base profile name (part before the dot)
+// 2. Within each group: stable (no stage or explicit "stable") before trial
+// 3. Groups ordered: "core" first, then alphabetically
+func SortProfilesForDisplay(profiles []ProfileConfig) []ProfileConfig {
+	if len(profiles) == 0 {
+		return profiles
+	}
+
+	// Parse profile names once and cache results
+	type parsedProfile struct {
+		profile  ProfileConfig
+		baseName string
+		stage    string
+	}
+
+	parsed := make([]parsedProfile, len(profiles))
+	for i, p := range profiles {
+		baseName, stage, err := ParseProfileName(p.Name)
+		if err != nil {
+			// If parsing fails, use the full name as base
+			baseName = p.Name
+			stage = ""
+		}
+		parsed[i] = parsedProfile{
+			profile:  p,
+			baseName: baseName,
+			stage:    stage,
+		}
+	}
+
+	// Sort using Go's standard sort.Slice
+	sort.Slice(parsed, func(i, j int) bool {
+		pi := parsed[i]
+		pj := parsed[j]
+
+		// Compare base names: "core" comes first
+		if pi.baseName == "core" && pj.baseName != "core" {
+			return true
+		}
+		if pi.baseName != "core" && pj.baseName == "core" {
+			return false
+		}
+
+		// If base names are different, sort alphabetically
+		if pi.baseName != pj.baseName {
+			return strings.ToLower(pi.baseName) < strings.ToLower(pj.baseName)
+		}
+
+		// Same base name, sort by stage: stable before trial
+		isStableI := pi.stage == "" || pi.stage == "stable"
+		isStableJ := pj.stage == "" || pj.stage == "stable"
+
+		if isStableI && !isStableJ {
+			return true
+		}
+		if !isStableI && isStableJ {
+			return false
+		}
+
+		// Both stable or both non-stable: alphabetical by stage
+		return strings.ToLower(pi.stage) < strings.ToLower(pj.stage)
+	})
+
+	// Extract sorted profiles
+	result := make([]ProfileConfig, len(parsed))
+	for i, p := range parsed {
+		result[i] = p.profile
+	}
+
+	return result
 }

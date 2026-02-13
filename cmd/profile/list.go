@@ -28,8 +28,11 @@ func runProfileList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Sort profiles for display
+	sortedProfiles := config.SortProfilesForDisplay(profilesConfig.Profiles)
+
 	fmt.Println("Configured profiles:")
-	for _, p := range profilesConfig.Profiles {
+	for _, p := range sortedProfiles {
 		if p.Description != "" {
 			fmt.Printf("  - %s (description: %s)\n", p.Name, p.Description)
 		} else {

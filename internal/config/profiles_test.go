@@ -335,3 +335,104 @@ func TestGetReviewDays(t *testing.T) {
 		t.Errorf("nonexistent: err=%v has=%v", err, has)
 	}
 }
+
+func TestSortProfilesForDisplay(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []ProfileConfig
+		want  []string // profile names in expected order
+	}{
+		{
+			name:  "empty",
+			input: []ProfileConfig{},
+			want:  []string{},
+		},
+		{
+			name: "single profile",
+			input: []ProfileConfig{
+				{Name: "core"},
+			},
+			want: []string{"core"},
+		},
+		{
+			name: "core before others",
+			input: []ProfileConfig{
+				{Name: "work"},
+				{Name: "core"},
+				{Name: "private"},
+			},
+			want: []string{"core", "private", "work"},
+		},
+		{
+			name: "stable before trial within same group",
+			input: []ProfileConfig{
+				{Name: "core.trial"},
+				{Name: "core"},
+			},
+			want: []string{"core", "core.trial"},
+		},
+		{
+			name: "complete example from issue",
+			input: []ProfileConfig{
+				{Name: "work.trial"},
+				{Name: "private"},
+				{Name: "core.trial"},
+				{Name: "work"},
+				{Name: "private.trial"},
+				{Name: "core"},
+			},
+			want: []string{"core", "core.trial", "private", "private.trial", "work", "work.trial"},
+		},
+		{
+			name: "alphabetical order for non-core groups",
+			input: []ProfileConfig{
+				{Name: "zebra"},
+				{Name: "alpha"},
+				{Name: "core"},
+				{Name: "beta"},
+			},
+			want: []string{"core", "alpha", "beta", "zebra"},
+		},
+		{
+			name: "multiple stages within group",
+			input: []ProfileConfig{
+				{Name: "work.trial"},
+				{Name: "work.stable"},
+				{Name: "work"},
+			},
+			want: []string{"work", "work.stable", "work.trial"},
+		},
+		{
+			name: "case insensitive sorting",
+			input: []ProfileConfig{
+				{Name: "Work"},
+				{Name: "alpha"},
+				{Name: "Beta"},
+			},
+			want: []string{"alpha", "Beta", "Work"},
+		},
+		{
+			name: "case insensitive stage comparison within same group",
+			input: []ProfileConfig{
+				{Name: "work.Trial"},
+				{Name: "work.Stable"},
+				{Name: "work"},
+			},
+			want: []string{"work", "work.Stable", "work.Trial"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SortProfilesForDisplay(tt.input)
+			if len(got) != len(tt.want) {
+				t.Fatalf("SortProfilesForDisplay() length = %d, want %d", len(got), len(tt.want))
+			}
+			for i, want := range tt.want {
+				if got[i].Name != want {
+					t.Errorf("SortProfilesForDisplay()[%d].Name = %q, want %q", i, got[i].Name, want)
+				}
+			}
+		})
+	}
+}

@@ -77,6 +77,7 @@ func brewMasHook(shell string) string {
 
 // brewShellenvInitScript initializes Homebrew environment.
 // Supports both Apple Silicon (/opt/homebrew) and Intel Mac (/usr/local) installations.
+// Uses [[ ]] syntax which is supported by both zsh and bash.
 const brewShellenvInitScript = `
 # Initialize Homebrew
 if [[ -x /opt/homebrew/bin/brew ]]; then

@@ -370,7 +370,6 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			debugLog("Categorization complete: %d to install, %d to upgrade, %d manual", len(toInstall), len(toUpgrade), len(manualPackages))
 
 			// Collect providers to install
-			var providersToInstall []string
 			var providersNeeded []string
 			for _, pkg := range packagesCfg.Packages {
 				if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {

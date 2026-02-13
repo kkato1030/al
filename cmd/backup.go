@@ -278,7 +278,7 @@ func showFilesToBackup(configDir string) error {
 	}
 
 	// If git is initialized, use git status to show what would be added
-	out, err := runGitOutput(configDir, "status", "--short")
+	out, err := runGitOutput(configDir, "status", "--porcelain")
 	if err != nil {
 		// If git status fails, fallback to listing files
 		entries, err := os.ReadDir(configDir)

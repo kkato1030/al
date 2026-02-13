@@ -56,7 +56,7 @@ eval "$(al activate zsh)"   # zsh
 eval "$(al activate bash)"  # bash
 ```
 
-有効になる内容: shell.d の有効スニペットの source、`brew install/uninstall` および `mas install/uninstall` 実行時の al 利用の案内（`y` で従来どおり実行）。
+有効になる内容: Homebrew の初期化（`brew shellenv`）、shell.d の有効スニペットの source、`brew install/uninstall` および `mas install/uninstall` 実行時の al 利用の案内（`y` で従来どおり実行）。Apple Silicon（`/opt/homebrew`）と Intel Mac（`/usr/local`）の両方に対応。
 
 ### 環境の同期・バックアップ
 
@@ -167,7 +167,7 @@ al update
 | コマンド | 説明 |
 |----------|------|
 | `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定）。`--guided` で対話的なガイド付きセットアップ（推奨） |
-| `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
+| `al activate zsh` / `bash` | シェル用コードを出力（Homebrew 初期化、brew/mas のフック、shell.d のスニペット）。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
 | `al doctor` | 環境の破損や不整合を検出（プロバイダの有無、設定ファイルの妥当性、壊れた symlink、shell.d の依存サイクル、期限切れパッケージ、無効なプロファイル参照など）。システムに変更は加えない。OK / WARN / ERROR でステータスを表示 |
 | `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし、アップグレードもチェック）。`AL_DEBUG=1` でデバッグログ出力。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |

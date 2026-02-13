@@ -19,7 +19,16 @@
 
 ---
 
-## 2. 開発時の Makefile 利用
+## 2. コマンド入出力・対話
+
+**ルール**: コマンド・サブコマンドの**入出力**（引数・フラグ・stdout/stderr・メッセージ形式・`--json`）および**対話**（確認プロンプト・対話モード・TUI）を追加・変更する場合は、**docs/command-io-guidelines.md に従う**こと。
+
+- 新規コマンドは、ガイドラインの「入力設計」「出力形式」「メッセージ種別」「対話インターフェース」に合わせて実装する。
+- 既存コマンドのリファインは、ガイドライン策定後に順次行う。§8 チェックリストに「入出力・対話は command-io-guidelines に準拠しているか」を追加してもよい。
+
+---
+
+## 3. 開発時の Makefile 利用
 
 開発・検証時は **Makefile のターゲットを優先して使う**こと。以下を開発フローに組み込む。
 
@@ -50,7 +59,7 @@
 
 ---
 
-## 3. プロジェクト概要
+## 4. プロジェクト概要
 
 - **al**: Mac のパッケージ（Homebrew / mas）と設定（dotfiles・シェル）を一元管理する CLI
 - **構成**: Cobra によるサブコマンド、設定は `~/.al`（または `$AL_HOME`）
@@ -60,7 +69,7 @@
 
 ---
 
-## 4. リポジトリ構成
+## 5. リポジトリ構成
 
 - **`cmd/`**: コマンド定義（Cobra）。`root.go` がエントリで、`config/`・`link/`・`package/`・`profile/`・`provider/` がサブコマンド
 - **`internal/`**: 設定・プロバイダ・Brewfile パース・UI など本番用ロジック（外部から import しない想定）
@@ -75,7 +84,7 @@
 
 ---
 
-## 5. テスト・品質
+## 6. テスト・品質
 
 - **単体テスト**: `make test` または `go test -v ./...`。ローカルでは e2e パッケージは `GITHUB_ACTIONS` 未設定のためスキップされる。
 - **e2e テスト**: `e2e/` パッケージ。**GitHub Actions の macos-latest ジョブでのみ実行**される。CI では ubuntu ジョブで e2e を除外した `go test`、macOS ジョブで `go test -v ./e2e/` を実行する。e2e をローカルで実行したい場合は `GITHUB_ACTIONS=true go test -v ./e2e/`（macOS 推奨）。
@@ -87,7 +96,7 @@
 
 ---
 
-## 6. その他の注意事項
+## 7. その他の注意事項
 
 - **エイリアス**: `al add` などは `al config alias list` で確認できるエイリアス。実体は `al package add` 等。エイリアスを変える場合は README の「エイリアス」の記述も更新する。
 - **バージョン**: バイナリのバージョンは `main.Version`（ldflags）で渡している。リリース手順（GoReleaser 等）と Makefile の `VERSION` を整合させる。
@@ -96,10 +105,11 @@
 
 ---
 
-## 7. チェックリスト（コマンド変更時）
+## 8. チェックリスト（コマンド変更時）
 
 - [ ] `cmd/` の実装を変更した
 - [ ] README.md のコマンドリファレンス・機能一覧・使用例を更新した
+- [ ] 入出力・対話を変更した場合、docs/command-io-guidelines.md に準拠しているか確認した
 - [ ] `make fmt && make vet && make test` を実行した
 - [ ] （任意）`make lint` を実行した
 - [ ] （任意）`make build-release` でビルドし、`bin/al` で代表的なコマンドを手動確認した
@@ -108,7 +118,7 @@
 
 ---
 
-## 8. 開発の標準フロー（jj + GitHub）
+## 9. 開発の標準フロー（jj + GitHub）
 
 本リポジトリは Jujutsu（jj）でバージョン管理する想定である。変更をコミットして PR まで出す一連の流れは以下を標準とする。jj の用語・詳細は `docs/jj-cheat-sheet.md` を参照。
 
@@ -134,7 +144,7 @@
 
 ---
 
-## 9. 開発フローで用いるツールの allowlist
+## 10. 開発フローで用いるツールの allowlist
 
 以下に挙げるツール・コマンドは、開発フロー（コード編集・ビルド・テスト・jj 操作・PR 作成・fetch）の文脈で **ユーザーに確認せずに実行してよい** ものとする。AI エージェントはこれらを必要に応じて実行してよい。
 
@@ -145,8 +155,8 @@
 
 | 種別 | ツール／コマンド | 用途・備考 |
 |------|------------------|-------------|
-| ビルド・テスト | `make`（Makefile のターゲット） | `fmt`, `vet`, `lint`, `test`, `build`, `run`, `clean` 等（§2 参照）。Go 系はすべて make 経由とし、直接 `go` は使わない。足りなければ新規 Make ターゲットを検討する。 |
-| VCS（jj） | `jj` | `status`, `log`, `describe`, `new`, `edit`, `undo`, `git push`, `git fetch`, `bookmark` 等（§8・`docs/jj-cheat-sheet.md` 参照） |
+| ビルド・テスト | `make`（Makefile のターゲット） | `fmt`, `vet`, `lint`, `test`, `build`, `run`, `clean` 等（§3 参照）。Go 系はすべて make 経由とし、直接 `go` は使わない。足りなければ新規 Make ターゲットを検討する。 |
+| VCS（jj） | `jj` | `status`, `log`, `describe`, `new`, `edit`, `undo`, `git push`, `git fetch`, `bookmark` 等（§9・`docs/jj-cheat-sheet.md` 参照） |
 | GitHub | `gh` | `pr create`, `auth status`, `pr view`, `pr list` 等、PR 作成・状態確認 |
 | Git（参照） | `git` | `status`, `branch`, `log` 等、状態確認のための読み取り系 |
 | ウェブ検索 | （エージェント組み込み） | ドキュメント・API・技術情報の確認は確認せず実行してよい |

@@ -8,6 +8,7 @@ import (
 	packagecmd "github.com/kkato1030/al/cmd/package"
 	providercmd "github.com/kkato1030/al/cmd/provider"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/lock"
 	"github.com/kkato1030/al/internal/logger"
 	"github.com/spf13/cobra"
 )
@@ -15,11 +16,12 @@ import (
 // NewUpgradeCmd creates the upgrade command
 func NewUpgradeCmd() *cobra.Command {
 	var yes bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade all providers and packages",
-		Long:  "Upgrade all providers and packages. This is equivalent to running 'al provider upgrade' followed by 'al package upgrade'.",
+		Long:  "Upgrade all providers and packages. This is equivalent to running 'al provider upgrade' followed by 'al package upgrade'. Use --force to override any existing lock.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Create logger for upgrade operation
 			var log *logger.Logger
@@ -33,7 +35,7 @@ func NewUpgradeCmd() *cobra.Command {
 				}
 			}
 
-			err = runUpgrade(yes, log)
+			err = runUpgrade(yes, force, log)
 
 			if log != nil {
 				log.Close()
@@ -44,11 +46,27 @@ func NewUpgradeCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVar(&force, "force", false, "Override any existing lock from a previous sync/upgrade operation")
 
 	return cmd
 }
 
-func runUpgrade(yes bool, log *logger.Logger) error {
+func runUpgrade(yes bool, force bool, log *logger.Logger) error {
+	// Acquire lock
+	lockInstance, err := lock.New()
+	if err != nil {
+		return fmt.Errorf("failed to create lock: %w", err)
+	}
+
+	if err := lockInstance.Acquire(force); err != nil {
+		return err
+	}
+	defer lockInstance.Release()
+
+	if log != nil {
+		log.WriteString("Lock acquired\n")
+	}
+
 	// Helper to log and print
 	logPrintf := func(format string, args ...interface{}) {
 		msg := fmt.Sprintf(format, args...)

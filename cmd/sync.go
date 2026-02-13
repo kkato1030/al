@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/lock"
 	"github.com/kkato1030/al/internal/logger"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/source"
@@ -54,11 +55,12 @@ func NewSyncCmd() *cobra.Command {
 	var private bool
 	var pkgOnly bool
 	var linkOnly bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "sync [owner/repo]",
 		Short: "Sync al environment: clone ~/.al if needed, then apply providers, packages, and links",
-		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them.",
+		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them. Use --force to override any existing lock.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly); err != nil {
@@ -85,7 +87,7 @@ func NewSyncCmd() *cobra.Command {
 				}
 			}
 
-			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, args, log)
+			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, force, args, log)
 
 			if log != nil {
 				log.Close()
@@ -103,6 +105,7 @@ func NewSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&pkgOnly, "pkg-only", false, "Sync only packages (skip links)")
 	cmd.Flags().BoolVar(&linkOnly, "link-only", false, "Sync only links (skip packages)")
 	cmd.Flags().BoolVar(&private, "private", false, "Clone a private repo: install git, gh, git-credential-manager and run gh auth login before cloning")
+	cmd.Flags().BoolVar(&force, "force", false, "Override any existing lock from a previous sync/upgrade operation")
 
 	return cmd
 }
@@ -117,10 +120,28 @@ func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool) er
 	return nil
 }
 
-func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, args []string, log *logger.Logger) error {
+func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, force bool, args []string, log *logger.Logger) error {
 	if log != nil {
-		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v)\n",
-			dryRun, all, profileName, pkgOnly, linkOnly))
+		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v, force=%v)\n",
+			dryRun, all, profileName, pkgOnly, linkOnly, force))
+	}
+
+	// Skip lock in plan mode
+	if !dryRun {
+		// Acquire lock
+		lockInstance, err := lock.New()
+		if err != nil {
+			return fmt.Errorf("failed to create lock: %w", err)
+		}
+
+		if err := lockInstance.Acquire(force); err != nil {
+			return err
+		}
+		defer lockInstance.Release()
+
+		if log != nil {
+			log.WriteString("Lock acquired\n")
+		}
 	}
 
 	configDir, err := config.GetConfigDir()

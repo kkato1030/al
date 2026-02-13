@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -37,18 +39,21 @@ type Asset struct {
 
 // NewUpdateCmd creates the update command
 func NewUpdateCmd() *cobra.Command {
-	return &cobra.Command{
+	var yes bool
+	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Check for updates and update al to the latest version",
 		Long:  "Check for the latest version of al and update if a newer version is available.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUpdate()
+			return runUpdate(yes)
 		},
 	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation prompt")
+	return cmd
 }
 
-func runUpdate() error {
-	fmt.Println("Checking for updates...")
+func runUpdate(yes bool) error {
+	output.Info("Checking for updates...")
 
 	// Get current version
 	currentVersion := version
@@ -75,12 +80,16 @@ func runUpdate() error {
 	}
 
 	// Ask for confirmation
-	fmt.Printf("\nUpdate available! Do you want to update from %s to %s? [y/N]: ", currentVersion, latestVersion)
-	var response string
-	fmt.Scanln(&response)
-	if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-		fmt.Println("Update cancelled.")
-		return nil
+	if !yes {
+		promptStr := fmt.Sprintf("\nUpdate available! Update from %s to %s? [y/N]: ", currentVersion, latestVersion)
+		ok, err := prompt.Confirm(os.Stderr, promptStr)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
+			return nil
+		}
 	}
 
 	// Perform update
@@ -199,7 +208,7 @@ func performUpdate(release *Release) error {
 		return fmt.Errorf("no matching asset found for %s/%s", goos, arch)
 	}
 
-	fmt.Printf("Downloading %s...\n", assetName)
+	output.Info("Downloading %s...", assetName)
 
 	// Create temporary directory
 	tmpDir, err := os.MkdirTemp("", "al-update-*")
@@ -263,20 +272,20 @@ func performUpdate(release *Release) error {
 
 	if needsSudo {
 		// Use sudo to replace the binary
-		fmt.Println("Installing update (requires sudo)...")
+		output.Info("Installing update (requires sudo)...")
 		cmd := exec.Command("sudo", "mv", binaryPath, currentBinary)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to install update: %w", err)
 		}
 	} else {
 		// Replace the binary directly using atomic rename
-		fmt.Println("Installing update...")
+		output.Info("Installing update...")
 		if err := os.Rename(binaryPath, currentBinary); err != nil {
 			return fmt.Errorf("failed to install update: %w", err)
 		}
 	}
 
-	fmt.Printf("Successfully updated to version %s!\n", strings.TrimPrefix(release.TagName, "v"))
+	output.Success("Updated to version %s", strings.TrimPrefix(release.TagName, "v"))
 	return nil
 }
 

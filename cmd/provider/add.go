@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,7 @@ func runProviderAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(orderedProviders) > 1 {
-		fmt.Printf("Resolved provider dependencies: %s\n", strings.Join(orderedProviders, " -> "))
+		output.Info("Resolved provider dependencies: %s", strings.Join(orderedProviders, " -> "))
 	}
 
 	for _, name := range orderedProviders {
@@ -53,24 +54,24 @@ func addProvider(providerName string) error {
 	}
 
 	if installed {
-		fmt.Printf("%s is already installed\n", providerName)
+		output.Info("%s is already installed", providerName)
 		if err := p.SetupConfig(); err != nil {
-			fmt.Printf("Warning: failed to set up config for %s: %v\n", providerName, err)
+			output.Warning("Failed to set up config for %s: %v", providerName, err)
 		}
 		return nil
 	}
 
-	fmt.Printf("Installing %s...\n", providerName)
+	output.Info("Installing %s...", providerName)
 	if err := p.Install(); err != nil {
 		return fmt.Errorf("error installing %s: %w", providerName, err)
 	}
 
-	fmt.Printf("Setting up configuration for %s...\n", providerName)
+	output.Info("Setting up configuration for %s...", providerName)
 	if err := p.SetupConfig(); err != nil {
 		return fmt.Errorf("error setting up config for %s: %w", providerName, err)
 	}
 
-	fmt.Printf("%s has been successfully installed and configured\n", providerName)
+	output.Success("Installed %s", providerName)
 	return nil
 }
 

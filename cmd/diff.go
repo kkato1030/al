@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ func runDiff() int {
 	// Load packages config to get desired state
 	packagesConfig, err := config.LoadPackagesConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to load packages config: %v\n", err)
+		output.Error("Failed to load packages config: %v", err)
 		return 1
 	}
 
@@ -92,14 +93,14 @@ func runDiff() int {
 	// Get currently installed packages from system
 	installedPackages, err := getInstalledPackages()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get installed packages: %v\n", err)
+		output.Error("Failed to get installed packages: %v", err)
 		return 1
 	}
 
 	// Get upgradable packages from system
 	upgradablePackages, err := getUpgradablePackages()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get upgradable packages: %v\n", err)
+		output.Error("Failed to get upgradable packages: %v", err)
 		return 1
 	}
 

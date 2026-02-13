@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Create .gitignore for logs directory
 	if err := config.EnsureGitignore(); err != nil {
-		fmt.Printf("Warning: failed to create .gitignore: %v\n", err)
+		output.Warning("Failed to create .gitignore: %v", err)
 		// Don't fail init if .gitignore creation fails
 	}
 
@@ -68,7 +69,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if err := config.AddOrUpdateProfile(profile); err != nil {
 			return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
 		}
-		fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+		output.Success("Profile %s set up", profile.Name)
 	}
 
 	// Add provider: brew
@@ -87,7 +88,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err := config.AddOrUpdateProvider(providerConfig); err != nil {
 		return fmt.Errorf("failed to add provider: %w", err)
 	}
-	fmt.Println("Provider 'brew' has been set up")
+	output.Success("Provider brew set up")
 
 	// Set default_profile, default_provider, default_stage
 	appConfig := &config.AppConfig{
@@ -100,7 +101,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("Default settings: profile=core.trial, provider=brew, stage=trial")
 
-	fmt.Println("\nInitialization complete. You can start using al with 'al package add'.")
+	output.Success("Initialization complete")
+	output.Info("You can start using al with 'al package add'.")
 	return nil
 }
 
@@ -114,7 +116,7 @@ func runInitGuided() error {
 
 	// Create .gitignore for logs directory
 	if err := config.EnsureGitignore(); err != nil {
-		fmt.Printf("Warning: failed to create .gitignore: %v\n", err)
+		output.Warning("Failed to create .gitignore: %v", err)
 	}
 
 	// Prompt 1: Profile setup strategy
@@ -220,7 +222,7 @@ func runInitGuided() error {
 		if err := config.AddOrUpdateProfile(profile); err != nil {
 			return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
 		}
-		fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+		output.Success("Profile %s set up", profile.Name)
 	}
 
 	// Create additional profiles if any
@@ -244,7 +246,7 @@ func runInitGuided() error {
 			if err := config.AddOrUpdateProfile(profile); err != nil {
 				return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
 			}
-			fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+			output.Success("Profile %s set up", profile.Name)
 		}
 	}
 
@@ -264,7 +266,7 @@ func runInitGuided() error {
 	if err := config.AddOrUpdateProvider(providerConfig); err != nil {
 		return fmt.Errorf("failed to add provider: %w", err)
 	}
-	fmt.Println("Provider 'brew' has been set up")
+	output.Success("Provider brew set up")
 
 	// Set default_profile, default_provider, default_stage
 	var defaultProfile string
@@ -287,7 +289,7 @@ func runInitGuided() error {
 	}
 	fmt.Printf("Default settings: profile=%s, provider=brew, stage=%s\n", defaultProfile, defaultStage)
 
-	fmt.Println("\n✓ Initialization complete!")
+	output.Success("Initialization complete")
 	fmt.Printf("\nConfiguration summary:\n")
 	fmt.Printf("  Profile setup: %s\n", setupChoice)
 	if len(additionalProfiles) > 0 {

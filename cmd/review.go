@@ -9,6 +9,8 @@ import (
 
 	packagecmd "github.com/kkato1030/al/cmd/package"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +32,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get overdue packages: %w", err)
 	}
 	if len(overdue) == 0 {
-		fmt.Println("No packages overdue for review.")
+		fmt.Println("No packages overdue for review")
 		return nil
 	}
 
@@ -70,13 +72,12 @@ func runReview(cmd *cobra.Command, args []string) error {
 				resolved = true
 			default:
 				// postpone (default; "s", "postpone", or any other input)
-				fmt.Print("  Really? Do you really need it? [y/N]: ")
-				if !scanner.Scan() {
-					return scanner.Err()
+				ok, err := prompt.Confirm(os.Stderr, "  Postpone anyway? [y/N]: ")
+				if err != nil {
+					return err
 				}
-				confirm := strings.TrimSpace(strings.ToLower(scanner.Text()))
-				if confirm != "y" && confirm != "yes" {
-					fmt.Println("  Back to choice.")
+				if !ok {
+					fmt.Fprintln(os.Stderr, "  Back to choice.")
 					continue
 				}
 				days, hasReview, err := config.GetReviewDays(pkg.Profile)
@@ -87,7 +88,7 @@ func runReview(cmd *cobra.Command, args []string) error {
 				if err := config.SetPackageReviewBy(pkg.ID, pkg.Provider, pkg.Profile, reviewBy); err != nil {
 					return fmt.Errorf("postpone %s: %w", pkg.Name, err)
 				}
-				fmt.Printf("  Review extended to %s.\n", reviewBy.Format("2006-01-02"))
+				output.Info("  Review extended to %s", reviewBy.Format("2006-01-02"))
 				resolved = true
 			}
 		}

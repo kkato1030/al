@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
@@ -307,9 +308,9 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 			if err := config.AddBrewTap(tapName); err != nil {
 				return fmt.Errorf("error saving brew taps: %w", err)
 			}
-			fmt.Printf("Tap '%s' has been added and is managed by provider brew.\n", tapName)
+			output.Success("Added tap %s", tapName)
 		} else {
-			fmt.Printf("Tap '%s' is already managed by provider brew.\n", tapName)
+			output.Info("Tap %s is already managed by provider brew", tapName)
 		}
 		return nil
 	}
@@ -334,7 +335,7 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 			return fmt.Errorf("error installing package: %w", err)
 		}
 	} else {
-		fmt.Printf("Package with id '%s' already exists in config, skipping installation\n", finalID)
+		output.Info("Package %s already in config, skipping installation", finalID)
 	}
 
 	// Create package config
@@ -357,9 +358,9 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 	}
 
 	if packageExists {
-		fmt.Printf("Package '%s' (ID: %s) has been successfully updated in profile '%s' with provider '%s'\n", finalName, finalID, profile, providerName)
+		output.Success("Updated package %s in profile %s", finalName, profile)
 	} else {
-		fmt.Printf("Package '%s' (ID: %s) has been successfully added to profile '%s' with provider '%s'\n", finalName, finalID, profile, providerName)
+		output.Success("Added package %s to profile %s", finalName, profile)
 	}
 	return nil
 }

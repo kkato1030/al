@@ -1,7 +1,6 @@
 package packagecmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/kkato1030/al/internal/brewfile"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -165,16 +166,12 @@ func cacheMasList() (map[string]string, error) {
 
 // promptForPackage asks the user whether to import a package
 func promptForPackage(entry brewfile.Entry, profileName string) bool {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Import %s %s (%s) to profile '%s'? [y/N]: ", entry.Provider, entry.Name, entry.ID, profileName)
-
-	response, err := reader.ReadString('\n')
+	promptStr := fmt.Sprintf("Import %s %s (%s) to profile '%s'? [y/N]: ", entry.Provider, entry.Name, entry.ID, profileName)
+	ok, err := prompt.Confirm(os.Stderr, promptStr)
 	if err != nil {
 		return false
 	}
-
-	response = strings.ToLower(strings.TrimSpace(response))
-	return response == "y" || response == "yes"
+	return ok
 }
 
 // NewPackageImportCmd creates the package import command.
@@ -186,6 +183,7 @@ func NewPackageImportCmd() *cobra.Command {
 	var overwrite bool
 	var verbose bool
 	var interactive bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "import [Brewfile]",
@@ -253,13 +251,14 @@ func NewPackageImportCmd() *cobra.Command {
 
 			var result *brewfile.ParseResult
 			if autoDetect {
-				// Auto-detect installed packages from brew and mas
-				result, err = detectInstalledPackages(interactive, finalProfile)
+				// Auto-detect installed packages from brew and mas (when -y, skip per-package prompt)
+				askPerPackage := interactive && !yes
+				result, err = detectInstalledPackages(askPerPackage, finalProfile)
 				if err != nil {
 					return fmt.Errorf("auto-detect packages: %w", err)
 				}
 				if len(result.Entries) == 0 {
-					fmt.Println("No packages detected from brew or mas. Make sure brew/mas are installed and registered.")
+					output.Info("No packages detected from brew or mas. Make sure brew/mas are installed and registered.")
 					return nil
 				}
 			} else {
@@ -425,16 +424,15 @@ func NewPackageImportCmd() *cobra.Command {
 				sourceInfo = fmt.Sprintf(" from %s", brewfilePath)
 			}
 
-			fmt.Printf("Imported %d packages (brew: %d, mas: %d)%s", imported, brewImported, masImported, sourceInfo)
+			output.Success("Imported %d packages (brew: %d, mas: %d)%s", imported, brewImported, masImported, sourceInfo)
 			if tapsImported > 0 {
-				fmt.Printf(", %d tap(s) (managed by provider brew)", tapsImported)
+				output.Info("Added %d tap(s) (managed by provider brew)", tapsImported)
 			}
 			if skipped > 0 {
-				fmt.Printf(". Skipped %d (already registered)", skipped)
+				output.Info("Skipped %d already registered", skipped)
 			}
-			fmt.Println()
 			if len(result.Skipped) > 0 {
-				fmt.Printf("Skipped %d lines (vscode/go/cargo/...). Use --verbose to see details.\n", len(result.Skipped))
+				output.Info("Skipped %d lines (vscode/go/cargo/...). Use --verbose to see details.", len(result.Skipped))
 			}
 			return nil
 		},
@@ -448,6 +446,7 @@ func NewPackageImportCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite existing entries with same id, provider, profile")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Show skipped lines (unsupported types)")
 	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false, "Interactive mode: choose which packages to import")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "In interactive mode, import all without prompting")
 
 	return cmd
 }

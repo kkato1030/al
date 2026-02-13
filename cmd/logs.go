@@ -9,6 +9,7 @@ import (
 
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/logger"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -107,7 +108,7 @@ func openRecentLog(logsDir string) error {
 	}
 
 	logPath := filepath.Join(logsDir, logs[0])
-	fmt.Printf("Opening most recent log: %s\n", logs[0])
+	output.Info("Opening most recent log: %s", logs[0])
 	return openFile(logPath)
 }
 

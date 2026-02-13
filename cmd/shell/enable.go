@@ -1,9 +1,8 @@
 package shell
 
 import (
-	"fmt"
-
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +43,6 @@ func setEnabled(packageName string, enabled bool) error {
 	if enabled {
 		verb = "Enabled"
 	}
-	fmt.Printf("%s shell snippet for %s (provider: %s, profile: %s)\n", verb, pkg.Name, pkg.Provider, pkg.Profile)
+	output.Success("%s shell snippet for %s", verb, pkg.Name)
 	return nil
 }

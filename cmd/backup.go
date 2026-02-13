@@ -20,25 +20,27 @@ func NewBackupCmd() *cobra.Command {
 	var init bool
 	var private bool
 	var repo string
+	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Backup al settings to GitHub",
-		Long:  "Commit and push ~/.al (AL_HOME) to a GitHub repository. Default repo is owner/dotal (owner from gh). Use --init to create the repository on GitHub first.",
+		Long:  "Commit and push ~/.al (AL_HOME) to a GitHub repository. Default repo is owner/dotal (owner from gh). Use --init to create the repository on GitHub first. Use --dry-run to preview what would be backed up without actually committing or pushing.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBackup(init, private, repo)
+			return runBackup(init, private, repo, dryRun)
 		},
 	}
 
 	cmd.Flags().BoolVar(&init, "init", false, "Create the GitHub repository if it does not exist, then push")
 	cmd.Flags().BoolVar(&private, "private", false, "With --init, create the repository as private")
 	cmd.Flags().StringVar(&repo, "repo", "", "Override backup repository (owner/repo, e.g. kkato1030/dotal)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be backed up without committing or pushing")
 
 	return cmd
 }
 
-func runBackup(doInit bool, private bool, repoOverride string) error {
+func runBackup(doInit bool, private bool, repoOverride string, dryRun bool) error {
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)
@@ -54,6 +56,43 @@ func runBackup(doInit bool, private bool, repoOverride string) error {
 	}
 
 	remoteURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+
+	if dryRun {
+		fmt.Println("[dry-run] Backup preview:")
+		fmt.Printf("  Target repository: https://github.com/%s/%s\n", owner, repo)
+
+		if doInit {
+			fmt.Printf("  Would create repository (visibility: %s)\n", map[bool]string{true: "private", false: "public"}[private])
+			fmt.Println("  Would initialize git in config directory")
+		}
+
+		// Check what files would be backed up
+		gitDir := filepath.Join(configDir, ".git")
+		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+			fmt.Println("  Would initialize git repository")
+		}
+
+		// Show what would be added
+		fmt.Println("\n  Files that would be backed up:")
+		if err := showFilesToBackup(configDir); err != nil {
+			return fmt.Errorf("failed to check files: %w", err)
+		}
+
+		// Check if there would be changes to commit
+		hasChanges, err := checkWouldHaveChanges(configDir)
+		if err != nil {
+			return fmt.Errorf("failed to check changes: %w", err)
+		}
+
+		if hasChanges {
+			fmt.Println("\n  Would commit changes with message: \"al backup\"")
+			fmt.Printf("  Would push to https://github.com/%s/%s\n", owner, repo)
+		} else {
+			fmt.Println("\n  No changes to commit (already up to date)")
+		}
+
+		return nil
+	}
 
 	if doInit {
 		if err := ensureRepoOnGitHub(owner, repo, private); err != nil {
@@ -213,4 +252,80 @@ func runGitOutput(dir string, args ...string) ([]byte, error) {
 	cmd.Dir = dir
 	cmd.Stderr = nil
 	return cmd.Output()
+}
+
+// showFilesToBackup lists files that would be backed up
+func showFilesToBackup(configDir string) error {
+	gitDir := filepath.Join(configDir, ".git")
+	gitInitialized := false
+	if _, err := os.Stat(gitDir); err == nil {
+		gitInitialized = true
+	}
+
+	if !gitInitialized {
+		// If git is not initialized, show all files
+		entries, err := os.ReadDir(configDir)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.Name() == ".git" {
+				continue
+			}
+			fmt.Printf("    %s\n", entry.Name())
+		}
+		return nil
+	}
+
+	// If git is initialized, use git status to show what would be added
+	out, err := runGitOutput(configDir, "status", "--short")
+	if err != nil {
+		// If git status fails, fallback to listing files
+		entries, err := os.ReadDir(configDir)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if entry.Name() == ".git" {
+				continue
+			}
+			fmt.Printf("    %s\n", entry.Name())
+		}
+		return nil
+	}
+
+	lines := strings.Split(string(out), "\n")
+	hasFiles := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		hasFiles = true
+		fmt.Printf("    %s\n", line)
+	}
+
+	if !hasFiles {
+		fmt.Println("    (no changes)")
+	}
+
+	return nil
+}
+
+// checkWouldHaveChanges checks if there would be changes to commit
+func checkWouldHaveChanges(configDir string) (bool, error) {
+	gitDir := filepath.Join(configDir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		// If git is not initialized, there would be changes
+		return true, nil
+	}
+
+	// Check git status
+	out, err := runGitOutput(configDir, "status", "--porcelain")
+	if err != nil {
+		// If we can't check, assume there are changes
+		return true, nil
+	}
+
+	return len(bytes.TrimSpace(out)) > 0, nil
 }

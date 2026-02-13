@@ -14,6 +14,7 @@ import (
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/lock"
 	"github.com/kkato1030/al/internal/logger"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/source"
 	"github.com/kkato1030/al/internal/ui"
@@ -47,11 +48,7 @@ type SyncSummary struct {
 
 // debugLog prints debug messages if AL_DEBUG environment variable is set
 func debugLog(format string, args ...interface{}) {
-	if os.Getenv("AL_DEBUG") != "" {
-		timestamp := time.Now().Format("15:04:05.000")
-		fmt.Fprintf(os.Stderr, "[DEBUG %s] ", timestamp)
-		fmt.Fprintf(os.Stderr, format+"\n", args...)
-	}
+	output.DebugLog(format, args...)
 }
 
 // loggedPrintf prints to stdout and optionally to the logger
@@ -481,13 +478,14 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				return fmt.Errorf("check provider %s: %w", name, err)
 			}
 			if !installed {
-				fmt.Printf("Installing provider %s...\n", name)
+				output.Info("Installing provider %s...", name)
 				if err := p.Install(); err != nil {
 					return fmt.Errorf("install provider %s: %w", name, err)
 				}
 				if err := p.SetupConfig(); err != nil {
 					return fmt.Errorf("setup provider %s: %w", name, err)
 				}
+				output.Success("Provider %s installed", name)
 			}
 		}
 		for _, pkg := range packagesCfg.Packages {
@@ -502,20 +500,19 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			if !installed {
 				continue
 			}
-			fmt.Printf("Installing package %s (%s)...\n", pkg.Name, pkg.ID)
+			output.Info("Installing package %s (%s)...", pkg.Name, pkg.ID)
 			if err := p.InstallPackage(pkg.ID); err != nil {
 				return fmt.Errorf("install package %s: %w", pkg.Name, err)
 			}
 		}
 		// Display warning for manual packages
 		if len(manualPackages) > 0 {
-			fmt.Fprintln(os.Stderr, "\n⚠️  Manual packages detected:")
-			fmt.Fprintln(os.Stderr, "The following packages are tracked as manually installed.")
-			fmt.Fprintln(os.Stderr, "Please ensure they are installed on this system:")
+			output.Warning("Manual packages detected:")
+			output.Info("The following packages are tracked as manually installed.")
+			output.Info("Please ensure they are installed on this system:")
 			for _, pkg := range manualPackages {
-				fmt.Fprintf(os.Stderr, "  - %s (ID: %s, Profile: %s)\n", pkg.Name, pkg.ID, pkg.Profile)
+				output.Info("  - %s (ID: %s, Profile: %s)", pkg.Name, pkg.ID, pkg.Profile)
 			}
-			fmt.Fprintln(os.Stderr)
 		}
 	}
 
@@ -550,19 +547,27 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		if err != nil {
 			return fmt.Errorf("bootstrap dir: %w", err)
 		}
-		fmt.Println("\nRunning bootstrap script...")
+		output.Info("\nRunning bootstrap script...")
 		cmd := exec.Command(scriptPath)
 		cmd.Dir = bootstrapDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// For bootstrap scripts, show output in debug mode
+		if output.IsDebugMode() {
+			cmd.Stdout = output.GetToolOutputWriter("bootstrap")
+			cmd.Stderr = output.GetToolOutputWriter("bootstrap")
+		} else {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
 		cmd.Stdin = os.Stdin
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("bootstrap script: %w", err)
 		}
+		output.Success("Bootstrap script completed")
 	}
 
-	fmt.Println("\nSync complete. Add the following to your shell config (.zshrc, .bashrc, etc.):")
-	fmt.Println(`  eval "$(al activate zsh)"  # or bash`)
+	output.Success("\nSync complete!")
+	output.Info("Add the following to your shell config (.zshrc, .bashrc, etc.):")
+	output.Info(`  eval "$(al activate zsh)"  # or bash`)
 	if log != nil {
 		log.WriteString("\nSync completed successfully\n")
 	}

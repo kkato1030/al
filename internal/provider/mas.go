@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 )
 
 // MasProvider implements the Provider interface for Mac App Store (mas)
@@ -70,16 +71,23 @@ func (p *MasProvider) Install() error {
 	}
 
 	// Install mas using brew
-	fmt.Println("Installing mas using brew...")
+	output.Info("Installing mas using Homebrew...")
+	spinner := output.NewSpinner("Installing mas...")
+	spinner.Start()
+
 	cmd := exec.Command("brew", "install", "mas")
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to install mas: %w", err)
 	}
 
+	output.Success("mas installed successfully")
 	return nil
 }
 
@@ -124,17 +132,22 @@ func (p *MasProvider) InstallPackage(packageID string) error {
 	}
 
 	// Run mas install command
-	fmt.Printf("Installing %s using mas...\n", packageID)
+	spinner := output.NewSpinner(fmt.Sprintf("Installing app %s...", packageID))
+	spinner.Start()
+
 	cmd := exec.Command("mas", "install", packageID)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolOutputWriter("mas")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to install package %s: %w", packageID, err)
 	}
 
-	fmt.Printf("Successfully installed %s\n", packageID)
+	output.Success("Installed app %s", packageID)
 	return nil
 }
 
@@ -151,17 +164,22 @@ func (p *MasProvider) UninstallPackage(packageID string) error {
 	}
 
 	// Run mas uninstall command
-	fmt.Printf("Uninstalling %s using mas...\n", packageID)
+	spinner := output.NewSpinner(fmt.Sprintf("Uninstalling app %s...", packageID))
+	spinner.Start()
+
 	cmd := exec.Command("mas", "uninstall", packageID)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolOutputWriter("mas")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to uninstall package %s: %w", packageID, err)
 	}
 
-	fmt.Printf("Successfully uninstalled %s\n", packageID)
+	output.Success("Uninstalled app %s", packageID)
 	return nil
 }
 
@@ -178,17 +196,22 @@ func (p *MasProvider) UpgradePackage(packageID string) error {
 	}
 
 	// Run mas upgrade command
-	fmt.Printf("Upgrading %s using mas...\n", packageID)
+	spinner := output.NewSpinner(fmt.Sprintf("Upgrading app %s...", packageID))
+	spinner.Start()
+
 	cmd := exec.Command("mas", "upgrade", packageID)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolOutputWriter("mas")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to upgrade package %s: %w", packageID, err)
 	}
 
-	fmt.Printf("Successfully upgraded %s\n", packageID)
+	output.Success("Upgraded app %s", packageID)
 	return nil
 }
 
@@ -215,13 +238,18 @@ func (p *MasProvider) Upgrade() error {
 	}
 
 	// Run brew upgrade mas
-	fmt.Println("Upgrading mas using brew...")
+	spinner := output.NewSpinner("Upgrading mas...")
+	spinner.Start()
+
 	cmd := exec.Command("brew", "upgrade", "mas")
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to upgrade mas: %w", err)
 	}
 
@@ -234,11 +262,11 @@ func (p *MasProvider) Upgrade() error {
 			Version:     version,
 		}
 		if err := config.AddOrUpdateProvider(providerConfig); err != nil {
-			fmt.Printf("Warning: failed to update provider config: %v\n", err)
+			output.Warning("Failed to update provider config: %v", err)
 		}
 	}
 
-	fmt.Println("Successfully upgraded mas")
+	output.Success("mas upgraded successfully")
 	return nil
 }
 

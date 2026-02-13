@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 )
 
 // BrewProvider implements the Provider interface for Homebrew
@@ -67,10 +68,13 @@ func (p *BrewProvider) Install() error {
 		return fmt.Errorf("brew is already installed")
 	}
 
+	output.Info("Installing Homebrew...")
+
 	// Run the official Homebrew installation script
 	installScript := "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
 	cmd := exec.Command("sh", "-c", installScript)
 	cmd.Stdin = os.Stdin
+	// In debug mode, show all output; otherwise show it (interactive install)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -78,6 +82,7 @@ func (p *BrewProvider) Install() error {
 		return fmt.Errorf("failed to install brew: %w", err)
 	}
 
+	output.Success("Homebrew installed successfully")
 	return nil
 }
 
@@ -216,13 +221,15 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 
 			// Check if tap is already tapped
 			tapInfoCmd := exec.Command("brew", "tap-info", tapName)
+			tapInfoCmd.Stdout = output.GetToolOutputWriter("brew")
+			tapInfoCmd.Stderr = output.GetToolOutputWriter("brew")
 			if err := tapInfoCmd.Run(); err != nil {
 				// Tap is not added yet, add it
-				fmt.Printf("Tapping %s...\n", tapName)
+				output.Info("Tapping %s...", tapName)
 				tapCmd := exec.Command("brew", "tap", tapName)
 				tapCmd.Stdin = os.Stdin
-				tapCmd.Stdout = os.Stdout
-				tapCmd.Stderr = os.Stderr
+				tapCmd.Stdout = output.GetToolOutputWriter("brew")
+				tapCmd.Stderr = output.GetToolOutputWriter("brew")
 
 				if err := tapCmd.Run(); err != nil {
 					return fmt.Errorf("failed to tap %s: %w", tapName, err)
@@ -230,14 +237,16 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 
 				// Add tap to config
 				if err := config.AddBrewTap(tapName); err != nil {
-					fmt.Printf("Warning: failed to save tap to config: %v\n", err)
+					output.Warning("Failed to save tap to config: %v", err)
 				}
 			}
 		}
 	}
 
 	// Run brew install command
-	fmt.Printf("Installing %s using brew...\n", pkgName)
+	spinner := output.NewSpinner(fmt.Sprintf("Installing %s...", pkgName))
+	spinner.Start()
+
 	var cmd *exec.Cmd
 	if pkgType == "cask" {
 		cmd = exec.Command("brew", "install", "--cask", pkgName)
@@ -247,14 +256,17 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 		cmd = exec.Command("brew", "install", pkgName)
 	}
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to install package %s: %w", pkgName, err)
 	}
 
-	fmt.Printf("Successfully installed %s\n", pkgName)
+	output.Success("Installed %s", pkgName)
 	return nil
 }
 
@@ -277,7 +289,9 @@ func (p *BrewProvider) UninstallPackage(packageID string) error {
 	}
 
 	// Run brew uninstall command
-	fmt.Printf("Uninstalling %s using brew...\n", pkgName)
+	spinner := output.NewSpinner(fmt.Sprintf("Uninstalling %s...", pkgName))
+	spinner.Start()
+
 	var cmd *exec.Cmd
 	if pkgType == "cask" {
 		cmd = exec.Command("brew", "uninstall", "--cask", pkgName)
@@ -287,14 +301,17 @@ func (p *BrewProvider) UninstallPackage(packageID string) error {
 		cmd = exec.Command("brew", "uninstall", pkgName)
 	}
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to uninstall package %s: %w", pkgName, err)
 	}
 
-	fmt.Printf("Successfully uninstalled %s\n", pkgName)
+	output.Success("Uninstalled %s", pkgName)
 	return nil
 }
 
@@ -317,7 +334,9 @@ func (p *BrewProvider) UpgradePackage(packageID string) error {
 	}
 
 	// Run brew upgrade command
-	fmt.Printf("Upgrading %s using brew...\n", pkgName)
+	spinner := output.NewSpinner(fmt.Sprintf("Upgrading %s...", pkgName))
+	spinner.Start()
+
 	var cmd *exec.Cmd
 	if pkgType == "cask" {
 		cmd = exec.Command("brew", "upgrade", "--cask", pkgName)
@@ -328,14 +347,17 @@ func (p *BrewProvider) UpgradePackage(packageID string) error {
 		cmd = exec.Command("brew", "upgrade", pkgName)
 	}
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := cmd.Run(); err != nil {
+	err = cmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to upgrade package %s: %w", pkgName, err)
 	}
 
-	fmt.Printf("Successfully upgraded %s\n", pkgName)
+	output.Success("Upgraded %s", pkgName)
 	return nil
 }
 
@@ -351,13 +373,18 @@ func (p *BrewProvider) Upgrade() error {
 	}
 
 	// Run brew update and upgrade
-	fmt.Println("Updating brew...")
+	spinner := output.NewSpinner("Updating Homebrew...")
+	spinner.Start()
+
 	updateCmd := exec.Command("brew", "update")
 	updateCmd.Stdin = os.Stdin
-	updateCmd.Stdout = os.Stdout
-	updateCmd.Stderr = os.Stderr
+	updateCmd.Stdout = output.GetToolOutputWriter("brew")
+	updateCmd.Stderr = output.GetToolOutputWriter("brew")
 
-	if err := updateCmd.Run(); err != nil {
+	err = updateCmd.Run()
+	spinner.Stop()
+
+	if err != nil {
 		return fmt.Errorf("failed to update brew: %w", err)
 	}
 
@@ -370,11 +397,11 @@ func (p *BrewProvider) Upgrade() error {
 			Version:     version,
 		}
 		if err := config.AddOrUpdateProvider(providerConfig); err != nil {
-			fmt.Printf("Warning: failed to update provider config: %v\n", err)
+			output.Warning("Failed to update provider config: %v", err)
 		}
 	}
 
-	fmt.Println("Successfully upgraded brew")
+	output.Success("Homebrew updated successfully")
 	return nil
 }
 

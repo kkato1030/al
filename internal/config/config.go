@@ -44,19 +44,22 @@ func EnsureGitignore() error {
 
 	// Check if .gitignore already exists
 	if _, err := os.Stat(gitignorePath); err == nil {
-		// File exists, check if logs/ is already in it
+		// File exists, check if logs/ and lock are already in it
 		content, err := os.ReadFile(gitignorePath)
 		if err != nil {
 			return err
 		}
 
-		// If logs/ is already present, don't modify
+		// If both are already present, don't modify
 		contentStr := string(content)
-		if strings.Contains(contentStr, "logs/") {
+		hasLogs := strings.Contains(contentStr, "logs/")
+		hasLock := strings.Contains(contentStr, "lock")
+
+		if hasLogs && hasLock {
 			return nil
 		}
 
-		// Append logs/ to existing .gitignore
+		// Append missing entries to existing .gitignore
 		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
@@ -70,15 +73,23 @@ func EnsureGitignore() error {
 			}
 		}
 
-		if _, err := f.WriteString("logs/\n"); err != nil {
-			return err
+		if !hasLogs {
+			if _, err := f.WriteString("logs/\n"); err != nil {
+				return err
+			}
+		}
+
+		if !hasLock {
+			if _, err := f.WriteString("lock\n"); err != nil {
+				return err
+			}
 		}
 
 		return nil
 	}
 
 	// Create new .gitignore
-	content := "# Ignore execution logs\nlogs/\n"
+	content := "# Ignore execution logs\nlogs/\n# Ignore lock file\nlock\n"
 	return os.WriteFile(gitignorePath, []byte(content), 0644)
 }
 

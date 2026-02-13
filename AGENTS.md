@@ -29,7 +29,7 @@
 | `make fmt` | コードフォーマット（`go fmt ./...`） | 編集後・PR 前 |
 | `make vet` | 静的解析（`go vet`） | 編集後・PR 前 |
 | `make lint` | golangci-lint（未インストール時はスキップ） | 品質チェック |
-| `make test` | テスト実行（`go test -v ./...`） | 機能変更後・PR 前 |
+| `make test` | テスト実行（`go test -v ./...`）。ローカルでは e2e はスキップ。e2e を CI 相当で試す場合は `GITHUB_ACTIONS=true go test -v ./e2e/` | 機能変更後・PR 前 |
 | `make test-coverage` | カバレッジ取得＋HTML レポート | テスト追加・リファクタ時 |
 | `make build` | バイナリビルド（`bin/al`） | 動作確認 |
 | `make build-dev` | 開発用ビルド（fmt + vet 後にビルド） | 日常の動作確認 |
@@ -65,9 +65,10 @@
 - **`cmd/`**: コマンド定義（Cobra）。`root.go` がエントリで、`config/`・`link/`・`package/`・`profile/`・`provider/` がサブコマンド
 - **`internal/`**: 設定・プロバイダ・Brewfile パース・UI など本番用ロジック（外部から import しない想定）
 - **`main.go`**: エントリポイント。バージョン・ビルド情報は ldflags で注入（Makefile 参照）
+- **`e2e/`**: e2e テスト。CI の macOS runner でのみ実行される（ローカルでは `GITHUB_ACTIONS` 未設定のためスキップ）。
 - **`testdata/`**: テスト用データ（例: Brewfile）
 - **`docs/`**: 設計・計画メモ（必要に応じて参照）。jj コマンドのチートシートは `docs/jj-cheat-sheet.md` を参照
-- **`.github/workflows/`**: CI（例: release）
+- **`.github/workflows/`**: CI（単体テストは ubuntu、e2e は macos-latest）
 - **`.goreleaser.yml`**: リリース・ビルド設定
 
 コマンドを追加・変更するときは `cmd/` と README.md の両方を整合させる。
@@ -76,7 +77,8 @@
 
 ## 5. テスト・品質
 
-- テスト: `make test` または `go test -v ./...`
+- **単体テスト**: `make test` または `go test -v ./...`。ローカルでは e2e パッケージは `GITHUB_ACTIONS` 未設定のためスキップされる。
+- **e2e テスト**: `e2e/` パッケージ。**GitHub Actions の macos-latest ジョブでのみ実行**される。CI では ubuntu ジョブで e2e を除外した `go test`、macOS ジョブで `go test -v ./e2e/` を実行する。e2e をローカルで実行したい場合は `GITHUB_ACTIONS=true go test -v ./e2e/`（macOS 推奨）。
 - カバレッジ: `make test-coverage` → `coverage.html` を確認
 - フォーマット: `make fmt` で統一
 - 静的解析: `make vet`、可能なら `make lint`（golangci-lint）

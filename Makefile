@@ -1,4 +1,4 @@
-.PHONY: build install clean test fmt vet run help
+.PHONY: build install clean test test-e2e fmt vet run help
 
 # 変数定義
 BINARY_NAME=al
@@ -37,6 +37,11 @@ clean:
 test:
 	@echo "Running tests..."
 	@go test -v ./...
+
+# e2e テスト（CI では macos ジョブで実行。ローカルで試す場合は GITHUB_ACTIONS=true で実行）
+test-e2e:
+	@echo "Running e2e tests..."
+	@GITHUB_ACTIONS=true go test -v ./e2e/
 
 # テストカバレッジ
 test-coverage:
@@ -103,6 +108,7 @@ help:
 	@echo "  make install        - Install the binary to GOPATH/bin"
 	@echo "  make clean          - Clean build artifacts"
 	@echo "  make test           - Run tests"
+	@echo "  make test-e2e       - Run e2e tests (CI only; set GITHUB_ACTIONS=true to run locally)"
 	@echo "  make test-coverage  - Run tests with coverage report"
 	@echo "  make fmt            - Format code"
 	@echo "  make vet            - Run go vet"

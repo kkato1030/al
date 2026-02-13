@@ -55,6 +55,7 @@ eval "$(al activate bash)"  # bash
 | パッケージ管理 | Homebrew / mas の追加・削除・昇格・一覧・アップグレード | `al add`, `al remove`, `al promote`, `al list`, `al upgrade` |
 | 差分確認 | 期待する状態（profiles）と現在の状態を比較 | `al diff` |
 | trial レビュー | trial のレビュー期限切れパッケージの対話的解決（remove / promote / postpone） | `al review` |
+| 診断 | 環境の破損・不整合を検出（プロバイダ・リンク・shell.d・期限切れパッケージなど） | `al doctor` |
 | Profile | 用途別の環境分離（例: work / private） | `al profile add`, `al profile list`, `al profile show` |
 | link.d | dotfiles を `~/.al/link.d/` に集約し、ユーザパスを symlink に | `al link add/list/remove/edit` |
 | shell.d | パッケージごとのシェルスニペットと読み込み順の管理 | `al shell show/add/edit/remove/enable/disable` |
@@ -151,6 +152,7 @@ al update
 | `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
 | `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
+| `al doctor` | 環境の破損や不整合を検出（プロバイダの有無、設定ファイルの妥当性、壊れた symlink、shell.d の依存サイクル、期限切れパッケージ、無効なプロファイル参照など）。システムに変更は加えない。OK / WARN / ERROR でステータスを表示 |
 | `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし、アップグレードもチェック）。`AL_DEBUG=1` でデバッグログ出力。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
 | `al diff` | 現在のシステムの状態とプロファイルで定義された期待する状態を比較。追加（+）、削除（-）、アップグレード（~）を表示。差分がある場合は終了コード 1 を返す |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
@@ -291,6 +293,19 @@ al import --prf core -i                   # 対話的に選択してインポー
 ---
 
 ## 使用例
+
+**環境の診断（推奨: セットアップ後や問題発生時）**
+
+```bash
+al doctor
+```
+
+出力例:
+```
+[OK]    brew is available
+[WARN]  link ~/.config/ghostty is broken
+[WARN]  trial package review expired: gh (run 'al review')
+```
 
 **試用から本番への昇格**
 

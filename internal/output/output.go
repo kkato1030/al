@@ -23,14 +23,14 @@ func DebugLog(format string, args ...interface{}) {
 	}
 }
 
-// Info prints an informational message
+// Info prints an informational message to stdout
 func Info(format string, args ...interface{}) {
-	fmt.Printf(format+"\n", args...)
+	fmt.Fprintf(os.Stdout, format+"\n", args...)
 }
 
-// Success prints a success message with a checkmark
+// Success prints a success message with a checkmark to stdout
 func Success(format string, args ...interface{}) {
-	fmt.Printf("✓ "+format+"\n", args...)
+	fmt.Fprintf(os.Stdout, "✓ "+format+"\n", args...)
 }
 
 // Warning prints a warning message

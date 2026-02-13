@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -114,10 +116,12 @@ func runProviderPruneBrew(dryRun, yes bool) error {
 		for _, t := range toRemove {
 			fmt.Printf("  %s\n", t)
 		}
-		fmt.Print("Continue? [y/N]: ")
-		var answer string
-		if _, err := fmt.Scanln(&answer); err != nil || (answer != "y" && answer != "Y") {
-			fmt.Println("Aborted.")
+		ok, err := prompt.Confirm(os.Stderr, "Continue? [y/N]: ")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
 			return nil
 		}
 	}
@@ -128,13 +132,13 @@ func runProviderPruneBrew(dryRun, yes bool) error {
 		untap.Stdout = os.Stdout
 		untap.Stderr = os.Stderr
 		if err := untap.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to untap %s: %v\n", t, err)
+			output.Warning("Failed to untap %s: %v", t, err)
 		} else {
-			fmt.Printf("Untapped %s\n", t)
+			output.Success("Untapped %s", t)
 		}
 		// Remove from al's brew-taps.json so we no longer manage this tap
 		if err := config.RemoveBrewTap(t); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to remove %s from brew-taps config: %v\n", t, err)
+			output.Warning("Failed to remove %s from brew-taps config: %v", t, err)
 		}
 	}
 	return nil

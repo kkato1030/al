@@ -2,9 +2,11 @@ package provider
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +46,7 @@ func runProviderUpgradeAll(yes bool) error {
 	}
 
 	if len(providersConfig.Providers) == 0 {
-		fmt.Println("No providers found.")
+		fmt.Println("No providers configured")
 		return nil
 	}
 
@@ -70,25 +72,26 @@ func runProviderUpgradeAll(yes bool) error {
 			}
 			fmt.Println()
 		}
-		fmt.Print("\nDo you want to continue? [y/N]: ")
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			fmt.Println("Upgrade cancelled.")
+		ok, err := prompt.Confirm(os.Stderr, "\nContinue? [y/N]: ")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
 			return nil
 		}
 	}
 
 	// Upgrade each provider
 	for _, providerName := range orderedProviders {
-		fmt.Printf("\nUpgrading provider: %s\n", providerName)
+		output.Info("\nUpgrading provider: %s", providerName)
 		if err := runProviderUpgrade(providerName); err != nil {
-			fmt.Printf("Error upgrading %s: %v\n", providerName, err)
+			output.Error("Upgrading %s: %v", providerName, err)
 			continue
 		}
 	}
 
-	fmt.Println("\nAll providers upgrade completed.")
+	output.Success("All providers upgraded")
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -132,7 +133,7 @@ func runProfileAdd(name, description, extendsStr, promoteTo, packageDuplication 
 		return fmt.Errorf("error saving profile: %w", err)
 	}
 
-	fmt.Printf("Profile '%s' has been successfully added\n", name)
+	output.Success("Added profile %s", name)
 	return nil
 }
 
@@ -243,7 +244,7 @@ func runProfileAddFromTemplate(profileName, templateName, description string) er
 			return fmt.Errorf("error saving profile '%s': %w", profile.Name, err)
 		}
 
-		fmt.Printf("Profile '%s' has been successfully added\n", profile.Name)
+		output.Success("Added profile %s", profile.Name)
 	}
 
 	return nil

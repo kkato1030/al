@@ -105,7 +105,7 @@ func NewSyncCmd() *cobra.Command {
 					log, err = logger.New(logsDir, cmdStr)
 					if err != nil {
 						// Log creation failed, but don't fail the sync
-						fmt.Fprintf(os.Stderr, "Warning: failed to create log file: %v\n", err)
+						output.Warning("Failed to create log file: %v", err)
 					}
 				}
 			}
@@ -206,7 +206,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				return fmt.Errorf("private clone setup: %w", err)
 			}
 		}
-		fmt.Printf("Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir)
+		fmt.Fprintf(os.Stderr, "Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir)
 		if log != nil {
 			log.WriteString(fmt.Sprintf("Cloning https://github.com/%s/%s into %s ...\n", owner, repo, configDir))
 		}
@@ -312,7 +312,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				providerInstalled, err := p.CheckInstalled()
 				debugLog("Provider %s CheckInstalled took %v", providerName, time.Since(checkStart))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", providerName, err)
+					output.Warning("Failed to check if provider %s is installed: %v", providerName, err)
 					cache.isInstalled = false
 				} else {
 					cache.isInstalled = providerInstalled
@@ -326,7 +326,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 					installedPkgs, err := p.ListInstalled()
 					debugLog("Provider %s ListInstalled took %v (returned %d packages)", providerName, time.Since(listStart), len(installedPkgs))
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to list installed packages for %s: %v\n", providerName, err)
+						output.Warning("Failed to list installed packages for %s: %v", providerName, err)
 						cache.installedPkgs = make(map[string]bool)
 					} else {
 						cache.installedPkgs = installedPkgs
@@ -337,7 +337,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 					upgradablePkgs, err := p.ListUpgradable()
 					debugLog("Provider %s ListUpgradable took %v (returned %d packages)", providerName, time.Since(upgradeStart), len(upgradablePkgs))
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: failed to list upgradable packages for %s: %v\n", providerName, err)
+						output.Warning("Failed to list upgradable packages for %s: %v", providerName, err)
 						cache.upgradablePkgs = make(map[string]bool)
 					} else {
 						cache.upgradablePkgs = upgradablePkgs
@@ -397,7 +397,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
 			if err != nil {
 				if !IsJSONOutput() {
-					fmt.Fprintf(os.Stderr, "Warning: failed to resolve provider dependencies: %v\n", err)
+					output.Warning("Failed to resolve provider dependencies: %v", err)
 				}
 				orderedProviders = providersNeeded
 			}
@@ -409,7 +409,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				installed, err := p.CheckInstalled()
 				if err != nil {
 					if !IsJSONOutput() {
-						fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", name, err)
+						output.Warning("Failed to check if provider %s is installed: %v", name, err)
 					}
 					continue
 				}
@@ -426,7 +426,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			links, err = config.ListLinks("", "")
 			if err != nil {
 				if !IsJSONOutput() {
-					fmt.Fprintf(os.Stderr, "Warning: failed to list links: %v\n", err)
+					output.Warning("Failed to list links: %v", err)
 				}
 				links = []config.LinkEntry{}
 			}
@@ -437,7 +437,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		exists, err := config.BootstrapScriptExists()
 		if err != nil {
 			if !IsJSONOutput() {
-				fmt.Fprintf(os.Stderr, "Warning: failed to check for bootstrap script: %v\n", err)
+				output.Warning("Failed to check for bootstrap script: %v", err)
 			}
 		} else {
 			hasBootstrap = exists

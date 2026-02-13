@@ -3,13 +3,14 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	packagecmd "github.com/kkato1030/al/cmd/package"
 	providercmd "github.com/kkato1030/al/cmd/provider"
 	"github.com/kkato1030/al/internal/config"
 	"github.com/kkato1030/al/internal/lock"
 	"github.com/kkato1030/al/internal/logger"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +32,7 @@ func NewUpgradeCmd() *cobra.Command {
 				log, err = logger.New(logsDir, "al upgrade")
 				if err != nil {
 					// Log creation failed, but don't fail the upgrade
-					fmt.Fprintf(os.Stderr, "Warning: failed to create log file: %v\n", err)
+					output.Warning("Failed to create log file: %v", err)
 				}
 			}
 
@@ -81,15 +82,16 @@ func runUpgrade(yes bool, force bool, log *logger.Logger) error {
 		logPrintf("This will upgrade all providers and packages.\n")
 		logPrintf("This is equivalent to:\n")
 		logPrintf("  1. al provider upgrade\n")
-		logPrintf("  2. al package upgrade\n")
-		logPrintf("\nDo you want to continue? [y/N]: ")
-		var response string
-		fmt.Scanln(&response)
-		if log != nil {
-			log.WriteString(response + "\n")
+		logPrintf("  2. al package upgrade\n\n")
+		ok, err := prompt.Confirm(os.Stderr, "Continue? [y/N]: ")
+		if err != nil {
+			return err
 		}
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			logPrintf("Upgrade cancelled.\n")
+		if log != nil {
+			log.WriteString("Continue? [y/N]: \n")
+		}
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
 			return nil
 		}
 	}

@@ -1,14 +1,14 @@
 package packagecmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
@@ -78,22 +78,20 @@ func runPackageRemove(packageName, providerName, profile string, keepShell, keep
 		if err := config.RemovePackage(foundPkg.ID, providerName, profile); err != nil {
 			return fmt.Errorf("error removing package: %w", err)
 		}
-		fmt.Printf("Package '%s' (ID: %s) has been removed from profile '%s' (still managed in other profile(s)); app was not uninstalled.\n", packageName, foundPkg.ID, profile)
+		output.Success("Removed %s from profile %s (still in other profiles)", packageName, profile)
 		return nil
 	}
 
 	// Last profile for this package: uninstall and clean up
 	// For manual provider, confirm that user has already uninstalled the package
 	if providerName == "manual" {
-		fmt.Printf("Have you already uninstalled '%s'? [y/N]: ", packageName)
-		reader := bufio.NewReader(os.Stdin)
-		response, err := reader.ReadString('\n')
+		ok, err := prompt.Confirm(os.Stderr, fmt.Sprintf("Have you already uninstalled '%s'? [y/N]: ", packageName))
 		if err != nil {
-			return fmt.Errorf("error reading response: %w", err)
+			return err
 		}
-		response = strings.TrimSpace(strings.ToLower(response))
-		if response != "y" && response != "yes" {
-			return fmt.Errorf("removal cancelled")
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
+			return nil
 		}
 	}
 
@@ -150,7 +148,7 @@ func runPackageRemove(packageName, providerName, profile string, keepShell, keep
 		}
 	}
 
-	fmt.Printf("Package '%s' (ID: %s) has been successfully removed from profile '%s' with provider '%s'\n", packageName, foundPkg.ID, profile, providerName)
+	output.Success("Removed %s from profile %s", packageName, profile)
 	return nil
 }
 

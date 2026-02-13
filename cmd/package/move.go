@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -163,7 +164,7 @@ func movePackage(pkg config.PackageConfig, toProfile string) error {
 		return fmt.Errorf("error adding package to target profile: %w", err)
 	}
 
-	fmt.Printf("Package '%s' (ID: %s) has been successfully moved from profile '%s' to profile '%s'\n", pkg.Name, pkg.ID, pkg.Profile, toProfile)
+	output.Success("Moved %s to profile %s", pkg.Name, toProfile)
 	return nil
 }
 

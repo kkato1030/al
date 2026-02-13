@@ -2,9 +2,11 @@ package packagecmd
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
+	"github.com/kkato1030/al/internal/prompt"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +46,7 @@ func runPackageUpgradeAll(yes bool) error {
 	}
 
 	if len(packagesConfig.Packages) == 0 {
-		fmt.Println("No packages found.")
+		fmt.Println("No packages configured")
 		return nil
 	}
 
@@ -58,11 +60,12 @@ func runPackageUpgradeAll(yes bool) error {
 			}
 			fmt.Println()
 		}
-		fmt.Print("\nDo you want to continue? [y/N]: ")
-		var response string
-		fmt.Scanln(&response)
-		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
-			fmt.Println("Upgrade cancelled.")
+		ok, err := prompt.Confirm(os.Stderr, "\nContinue? [y/N]: ")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Fprintln(os.Stderr, "Cancelled.")
 			return nil
 		}
 	}
@@ -78,7 +81,7 @@ func runPackageUpgradeAll(yes bool) error {
 	errorCount := 0
 
 	for providerName, packages := range packagesByProvider {
-		fmt.Printf("\nUpgrading packages for provider: %s\n", providerName)
+		output.Info("\nUpgrading packages for provider: %s", providerName)
 
 		// Get provider instance
 		var p provider.Provider
@@ -90,7 +93,7 @@ func runPackageUpgradeAll(yes bool) error {
 		case "manual":
 			p = provider.NewManualProvider()
 		default:
-			fmt.Printf("Warning: unknown provider '%s', skipping packages\n", providerName)
+			output.Warning("Unknown provider '%s', skipping packages", providerName)
 			errorCount += len(packages)
 			continue
 		}
@@ -98,21 +101,21 @@ func runPackageUpgradeAll(yes bool) error {
 		// Check if provider is installed
 		installed, err := p.CheckInstalled()
 		if err != nil {
-			fmt.Printf("Error checking provider installation: %v\n", err)
+			output.Error("Checking provider installation: %v", err)
 			errorCount += len(packages)
 			continue
 		}
 		if !installed {
-			fmt.Printf("Provider '%s' is not installed, skipping packages\n", providerName)
+			output.Warning("Provider '%s' is not installed, skipping packages", providerName)
 			errorCount += len(packages)
 			continue
 		}
 
 		// Upgrade each package
 		for _, pkg := range packages {
-			fmt.Printf("  Upgrading %s...\n", pkg.Name)
+			output.Info("Upgrading %s...", pkg.Name)
 			if err := p.UpgradePackage(pkg.ID); err != nil {
-				fmt.Printf("  Error upgrading %s: %v\n", pkg.Name, err)
+				output.Error("Upgrading %s: %v", pkg.Name, err)
 				errorCount++
 			} else {
 				successCount++
@@ -120,7 +123,7 @@ func runPackageUpgradeAll(yes bool) error {
 		}
 	}
 
-	fmt.Printf("\nUpgrade completed: %d succeeded, %d failed\n", successCount, errorCount)
+	output.Success("Upgrade completed: %d succeeded, %d failed", successCount, errorCount)
 	return nil
 }
 
@@ -164,23 +167,23 @@ func runPackageUpgrade(packageName string) error {
 		case "manual":
 			p = provider.NewManualProvider()
 		default:
-			fmt.Printf("Warning: unknown provider '%s' for package %s, skipping\n", pkg.Provider, pkg.Name)
+			output.Warning("Unknown provider '%s' for package %s, skipping", pkg.Provider, pkg.Name)
 			continue
 		}
 
 		// Check if provider is installed
 		installed, err := p.CheckInstalled()
 		if err != nil {
-			fmt.Printf("Error checking provider installation: %v\n", err)
+			output.Error("Checking provider installation: %v", err)
 			continue
 		}
 		if !installed {
-			fmt.Printf("Provider '%s' is not installed for package %s, skipping\n", pkg.Provider, pkg.Name)
+			output.Warning("Provider '%s' is not installed for package %s, skipping", pkg.Provider, pkg.Name)
 			continue
 		}
 
 		// Upgrade the package
-		fmt.Printf("Upgrading %s (%s:%s)...\n", pkg.Name, pkg.Provider, pkg.ID)
+		output.Info("Upgrading %s (%s:%s)...", pkg.Name, pkg.Provider, pkg.ID)
 		if err := p.UpgradePackage(pkg.ID); err != nil {
 			return fmt.Errorf("error upgrading %s: %w", pkg.Name, err)
 		}

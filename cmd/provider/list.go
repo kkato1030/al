@@ -25,7 +25,7 @@ func runProviderList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(providersCfg.Providers) == 0 {
-		fmt.Println("No providers installed")
+		fmt.Println("No providers configured")
 		return nil
 	}
 

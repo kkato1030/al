@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,6 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	if err := config.RemoveShellPackageDir(pkg.ID, pkg.Provider); err != nil {
 		return fmt.Errorf("removing shell.d: %w", err)
 	}
-	fmt.Printf("Removed shell snippet for %s (provider: %s)\n", pkg.Name, pkg.Provider)
+	output.Success("Removed shell snippet for %s", pkg.Name)
 	return nil
 }

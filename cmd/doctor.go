@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -555,8 +556,7 @@ func printResults(results []CheckResult) {
 	}
 
 	// Human-readable output
-	// Print header
-	fmt.Println("Running diagnostics...")
+	output.Info("Running diagnostics...")
 	fmt.Println()
 
 	// Print results

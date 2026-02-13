@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -43,9 +44,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		if err := os.WriteFile(snippetPath, []byte("# Shell configuration for "+pkg.Name+"\n"), 0644); err != nil {
 			return err
 		}
-		fmt.Printf("Created shell snippet for %s at %s\n", pkg.Name, snippetPath)
+		output.Success("Created shell snippet for %s", pkg.Name)
 	} else {
-		fmt.Printf("Shell snippet already exists for %s at %s\n", pkg.Name, snippetPath)
+		output.Info("Shell snippet already exists for %s", pkg.Name)
 	}
 
 	// Open in editor

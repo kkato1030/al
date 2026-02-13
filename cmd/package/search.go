@@ -63,7 +63,7 @@ func runPackageSearch(query, providerName string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Printf("No packages found for query '%s' with provider '%s'\n", query, providerName)
+		fmt.Println("No packages found")
 		return nil
 	}
 

@@ -1,0 +1,125 @@
+================================================================================
+VISUAL DEMONSTRATION: Output Organization in al CLI
+================================================================================
+
+BEFORE (without implementation):
+--------------------------------------------------------------------------------
+$ al package add git
+Installing git using brew...
+==> Downloading https://ghcr.io/v2/homebrew/core/git/manifests/2.43.0
+==> Fetching git
+==> Downloading https://ghcr.io/v2/homebrew/core/git/blobs/sha256:abc123...
+==> Pouring git--2.43.0.arm64_sonoma.bottle.tar.gz
+🍺  /opt/homebrew/Cellar/git/2.43.0: 1,675 files, 56.3MB
+Successfully installed git
+
+$ al sync
+Cloning https://github.com/user/dotal into /Users/user/.al ...
+Cloning into '/Users/user/.al'...
+remote: Enumerating objects: 123, done.
+remote: Counting objects: 100% (123/123), done.
+Installing provider brew...
+==> Downloading https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+==> Running install script...
+[... lots of brew installation output ...]
+Installing git using brew...
+==> Downloading https://ghcr.io/v2/homebrew/core/git/manifests/2.43.0
+[... brew output ...]
+Successfully installed git
+
+Sync complete. Add the following to your shell config (.zshrc, .bashrc, etc.):
+  eval "$(al activate zsh)"  # or bash
+
+================================================================================
+
+AFTER (with implementation) - NORMAL MODE:
+--------------------------------------------------------------------------------
+$ al package add git
+⠹ Installing git...
+✓ Installed git
+
+$ al sync
+Cloning https://github.com/user/dotal into /Users/user/.al ...
+✓ Repository cloned
+⠹ Installing provider brew...
+✓ Provider brew installed
+⠹ Installing git...
+✓ Installed git
+
+✓ Sync complete!
+Add the following to your shell config (.zshrc, .bashrc, etc.):
+  eval "$(al activate zsh)"  # or bash
+
+================================================================================
+
+AFTER (with implementation) - DEBUG MODE (AL_DEBUG=1):
+--------------------------------------------------------------------------------
+$ AL_DEBUG=1 al package add git
+[DEBUG 10:52:11.123] Checking if provider brew is installed
+[DEBUG 10:52:11.234] Provider brew is installed: true
+⠹ Installing git...
+[brew] ==> Downloading https://ghcr.io/v2/homebrew/core/git/manifests/2.43.0
+[brew] ==> Fetching git
+[brew] ==> Downloading https://ghcr.io/v2/homebrew/core/git/blobs/sha256:abc123...
+[brew] ==> Pouring git--2.43.0.arm64_sonoma.bottle.tar.gz
+[brew] 🍺  /opt/homebrew/Cellar/git/2.43.0: 1,675 files, 56.3MB
+✓ Installed git
+
+$ AL_DEBUG=1 al sync
+[DEBUG 10:52:15.001] Sync started (dryRun=false, all=false, profile=, pkgOnly=false, linkOnly=false, force=false)
+[DEBUG 10:52:15.002] Lock acquired
+Cloning https://github.com/user/dotal into /Users/user/.al ...
+[DEBUG 10:52:15.100] Running: git clone https://github.com/user/dotal /Users/user/.al
+[git] Cloning into '/Users/user/.al'...
+[git] remote: Enumerating objects: 123, done.
+[git] remote: Counting objects: 100% (123/123), done.
+✓ Repository cloned
+[DEBUG 10:52:20.500] Checking if provider brew is installed
+⠹ Installing provider brew...
+[brew] ==> Downloading https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+[brew] ==> Running install script...
+[brew] [... installation output ...]
+✓ Provider brew installed
+[DEBUG 10:52:45.200] Checking if package git is installed
+⠹ Installing git...
+[brew] ==> Downloading https://ghcr.io/v2/homebrew/core/git/manifests/2.43.0
+[brew] ==> Fetching git
+[brew] ==> Downloading https://ghcr.io/v2/homebrew/core/git/blobs/sha256:abc123...
+[brew] ==> Pouring git--2.43.0.arm64_sonoma.bottle.tar.gz
+[brew] 🍺  /opt/homebrew/Cellar/git/2.43.0: 1,675 files, 56.3MB
+✓ Installed git
+[DEBUG 10:52:50.000] Sync completed successfully
+
+✓ Sync complete!
+Add the following to your shell config (.zshrc, .bashrc, etc.):
+  eval "$(al activate zsh)"  # or bash
+
+================================================================================
+
+KEY IMPROVEMENTS:
+--------------------------------------------------------------------------------
+
+1. CLEAN OUTPUT (Normal Mode)
+   - Only essential messages shown
+   - No tool spam
+   - Clear progress indicators (spinners)
+   - Success/error states obvious with icons
+
+2. FULL VISIBILITY (Debug Mode)
+   - Everything visible when needed
+   - Tool output clearly labeled with [tool] prefix
+   - Debug timestamps help understand flow
+   - Easy troubleshooting
+
+3. CONSISTENCY
+   - All commands use same output style
+   - Icons (✓, ⚠️, ✗) make status clear
+   - Professional appearance
+   - Better user experience
+
+4. NO BREAKING CHANGES
+   - Existing functionality preserved
+   - Only output presentation changed
+   - Backward compatible
+
+================================================================================

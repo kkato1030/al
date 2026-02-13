@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -326,87 +327,65 @@ func SortProfilesForDisplay(profiles []ProfileConfig) []ProfileConfig {
 		return profiles
 	}
 
-	// Group profiles by base name
-	type profileGroup struct {
+	// Parse profile names once and cache results
+	type parsedProfile struct {
+		profile  ProfileConfig
 		baseName string
-		profiles []ProfileConfig
+		stage    string
 	}
 
-	groupMap := make(map[string]*profileGroup)
-	var groupOrder []string
-
-	for _, p := range profiles {
-		baseName, _, err := ParseProfileName(p.Name)
+	parsed := make([]parsedProfile, len(profiles))
+	for i, p := range profiles {
+		baseName, stage, err := ParseProfileName(p.Name)
 		if err != nil {
 			// If parsing fails, use the full name as base
 			baseName = p.Name
+			stage = ""
 		}
-
-		if _, exists := groupMap[baseName]; !exists {
-			groupMap[baseName] = &profileGroup{baseName: baseName}
-			groupOrder = append(groupOrder, baseName)
+		parsed[i] = parsedProfile{
+			profile:  p,
+			baseName: baseName,
+			stage:    stage,
 		}
-
-		// Store both baseName and stageName for sorting within group
-		groupMap[baseName].profiles = append(groupMap[baseName].profiles, p)
 	}
 
-	// Sort groups: "core" first, then alphabetically
-	sortGroupOrder := func(groups []string) []string {
-		var coreGroups []string
-		var otherGroups []string
+	// Sort using Go's standard sort.Slice
+	sort.Slice(parsed, func(i, j int) bool {
+		pi := parsed[i]
+		pj := parsed[j]
 
-		for _, g := range groups {
-			if g == "core" {
-				coreGroups = append(coreGroups, g)
-			} else {
-				otherGroups = append(otherGroups, g)
-			}
+		// Compare base names: "core" comes first
+		if pi.baseName == "core" && pj.baseName != "core" {
+			return true
+		}
+		if pi.baseName != "core" && pj.baseName == "core" {
+			return false
 		}
 
-		// Sort other groups alphabetically
-		for i := 0; i < len(otherGroups); i++ {
-			for j := i + 1; j < len(otherGroups); j++ {
-				if strings.ToLower(otherGroups[i]) > strings.ToLower(otherGroups[j]) {
-					otherGroups[i], otherGroups[j] = otherGroups[j], otherGroups[i]
-				}
-			}
+		// If base names are different, sort alphabetically
+		if pi.baseName != pj.baseName {
+			return strings.ToLower(pi.baseName) < strings.ToLower(pj.baseName)
 		}
 
-		return append(coreGroups, otherGroups...)
-	}
+		// Same base name, sort by stage: stable before trial
+		isStableI := pi.stage == "" || pi.stage == "stable"
+		isStableJ := pj.stage == "" || pj.stage == "stable"
 
-	groupOrder = sortGroupOrder(groupOrder)
-
-	// Sort profiles within each group: stable before trial
-	for _, group := range groupMap {
-		profiles := group.profiles
-		for i := 0; i < len(profiles); i++ {
-			for j := i + 1; j < len(profiles); j++ {
-				_, stageI, _ := ParseProfileName(profiles[i].Name)
-				_, stageJ, _ := ParseProfileName(profiles[j].Name)
-
-				// Stable (empty or "stable") comes before trial
-				isStableI := stageI == "" || stageI == "stable"
-				isStableJ := stageJ == "" || stageJ == "stable"
-
-				if !isStableI && isStableJ {
-					profiles[i], profiles[j] = profiles[j], profiles[i]
-				} else if isStableI == isStableJ {
-					// If both are stable or both are trial, sort alphabetically by stage name
-					if strings.ToLower(stageI) > strings.ToLower(stageJ) {
-						profiles[i], profiles[j] = profiles[j], profiles[i]
-					}
-				}
-			}
+		if isStableI && !isStableJ {
+			return true
 		}
-		group.profiles = profiles
-	}
+		if !isStableI && isStableJ {
+			return false
+		}
 
-	// Build the final sorted list
-	var result []ProfileConfig
-	for _, baseName := range groupOrder {
-		result = append(result, groupMap[baseName].profiles...)
+		// Both stable or both non-stable: alphabetical by stage
+		return strings.ToLower(pi.stage) < strings.ToLower(pj.stage)
+	})
+
+	// Extract sorted profiles
+	result := make([]ProfileConfig, len(parsed))
+	for i, p := range parsed {
+		result[i] = p.profile
 	}
 
 	return result

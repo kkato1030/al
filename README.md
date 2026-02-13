@@ -161,6 +161,31 @@ al update
 | `al logs` | 実行ログの一覧表示・閲覧。`--list` で最近のログを一覧、引数にログファイル名を指定すると閲覧。ログは `~/.al/logs/` に YYYYMMDD-HHMMSS.log 形式で保存される |
 | `al version` | バージョン表示 |
 
+### JSON 出力モード（`--json`）
+
+自動化・CI/CD 連携を可能にする JSON 形式の出力モード。以下のコマンドで利用可能:
+
+- **`al diff --json`**: 追加・削除・アップグレード対象パッケージを JSON で出力
+- **`al doctor --json`**: 診断結果と各チェックのステータスを JSON で出力
+- **`al sync --plan --json`**: 実行予定のアクションとサマリーを JSON で出力
+
+**出力例 (`al diff --json`)**:
+```json
+{
+  "additions": [
+    {"type": "addition", "provider": "brew", "name": "jq", "id": "formula:jq"}
+  ],
+  "removals": [],
+  "upgrades": [],
+  "has_drift": true
+}
+```
+
+**特徴**:
+- JSON 出力は有効・無効にかかわらず終了コードは一貫（`al diff` で差分検出時は 1、`al doctor` でエラー検出時は 1、正常時は 0）
+- 人間可読な出力は変更なし（デフォルトは従来どおり）
+- スクリプトやパイプライン処理に最適
+
 ### エイリアス（`al config alias list` で一覧）
 
 `al add` → `al package add`、`al remove` → `al package remove`、`al list` → `al package list`、`al promote` → `al package move {args} --to package.promote_to`、`al import` → `al package import {args}`、`al pkg` → `al package`、`al prf` → `al profile`、`al prv` → `al provider`

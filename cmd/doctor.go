@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +26,26 @@ const (
 type CheckResult struct {
 	Status  CheckStatus
 	Message string
+}
+
+// DoctorJSONOutput represents the JSON output format for doctor command
+type DoctorJSONOutput struct {
+	Checks   []DoctorCheck `json:"checks"`
+	Summary  DoctorSummary `json:"summary"`
+	HasError bool          `json:"has_error"`
+}
+
+// DoctorCheck represents a single diagnostic check in JSON output
+type DoctorCheck struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// DoctorSummary represents the summary counts in JSON output
+type DoctorSummary struct {
+	OK       int `json:"ok"`
+	Warnings int `json:"warnings"`
+	Errors   int `json:"errors"`
 }
 
 // NewDoctorCmd creates the doctor command
@@ -506,6 +527,34 @@ func printResults(results []CheckResult) {
 		}
 	}
 
+	// Handle JSON output
+	if IsJSONOutput() {
+		output := DoctorJSONOutput{
+			Checks: make([]DoctorCheck, 0, len(results)),
+			Summary: DoctorSummary{
+				OK:       okCount,
+				Warnings: warnCount,
+				Errors:   errorCount,
+			},
+			HasError: errorCount > 0,
+		}
+
+		for _, r := range results {
+			output.Checks = append(output.Checks, DoctorCheck{
+				Status:  string(r.Status),
+				Message: r.Message,
+			})
+		}
+
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(output); err != nil {
+			fmt.Fprintf(os.Stderr, "error encoding JSON: %v\n", err)
+		}
+		return
+	}
+
+	// Human-readable output
 	// Print header
 	fmt.Println("Running diagnostics...")
 	fmt.Println()

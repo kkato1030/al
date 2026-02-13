@@ -13,9 +13,17 @@ import (
 
 var version = "0.1.0"
 
+// jsonOutput is a global flag to enable JSON output
+var jsonOutput bool
+
 // SetVersion sets the version string
 func SetVersion(v string) {
 	version = v
+}
+
+// IsJSONOutput returns whether JSON output is enabled
+func IsJSONOutput() bool {
+	return jsonOutput
 }
 
 // NewRootCmd creates the root command
@@ -67,6 +75,9 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 	rootCmd.AddCommand(profile.NewProfileCmd())
 	rootCmd.AddCommand(packagecmd.NewPackageCmd())
 	rootCmd.AddCommand(shellcmd.NewCmd())
+
+	// Add global JSON flag
+	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format for automation")
 
 	return rootCmd
 }

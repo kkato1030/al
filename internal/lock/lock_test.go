@@ -3,6 +3,7 @@ package lock
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -250,13 +251,12 @@ func TestLockContent(t *testing.T) {
 	contentStr := string(content)
 
 	// Check that content contains pid
-	expectedPID := os.Getpid()
-	if !contains(contentStr, "pid=") {
+	if !strings.Contains(contentStr, "pid=") {
 		t.Error("lock file should contain pid")
 	}
 
 	// Check that content contains time
-	if !contains(contentStr, "time=") {
+	if !strings.Contains(contentStr, "time=") {
 		t.Error("lock file should contain time")
 	}
 
@@ -277,10 +277,4 @@ func TestLockContent(t *testing.T) {
 	if lockTime.Before(before.Add(-2*time.Second)) || lockTime.After(after.Add(2*time.Second)) {
 		t.Errorf("lock time %v should be between %v and %v", lockTime, before, after)
 	}
-
-	_ = expectedPID // Use the variable to avoid unused warning
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }

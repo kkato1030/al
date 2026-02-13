@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -126,18 +127,7 @@ func (l *Lock) readLockInfo() (string, error) {
 	}
 
 	// Split by newline and find the time= line
-	lines := []string{}
-	start := 0
-	for i := 0; i < len(contentStr); i++ {
-		if contentStr[i] == '\n' {
-			lines = append(lines, contentStr[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(contentStr) {
-		lines = append(lines, contentStr[start:])
-	}
-
+	lines := strings.Split(contentStr, "\n")
 	for _, line := range lines {
 		if len(line) > 5 && line[:5] == "time=" {
 			return line[5:], nil

@@ -21,6 +21,23 @@ al init
 
 以下が行われる: 設定ディレクトリ `~/.al`（または `$AL_HOME`）の作成、profile `core`（stage: trial）の作成、provider `brew` の登録、デフォルト設定（profile=core, provider=brew, stage=trial）の保存。
 
+#### ガイド付き初期化（推奨）
+
+初めて `al` を使う場合は、対話的なガイド付き初期化がおすすめ:
+
+```bash
+al init --guided
+```
+
+以下の質問に答えるだけで、自分に合った設定を自動生成:
+
+1. **使用目的**: work（仕事）/ personal（個人）/ mixed（両方）
+2. **プロファイル名**: mixed を選んだ場合のみ入力（work/personal は自動設定）
+3. **trial ワークフローの有効化**: 実験的パッケージの試用期間を設けるか
+4. **レビュー期間**: trial を有効にした場合、期限日数（7/14/30/60日）を選択
+
+最小限の質問で、使いやすい初期設定が完成。
+
 ### パッケージの追加
 
 ```bash
@@ -149,7 +166,7 @@ al update
 
 | コマンド | 説明 |
 |----------|------|
-| `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定） |
+| `al init` | 初回セットアップ（profile core, provider brew, デフォルト設定）。`--guided` で対話的なガイド付きセットアップ（推奨） |
 | `al activate zsh` / `bash` | シェル用コードを出力。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
 | `al doctor` | 環境の破損や不整合を検出（プロバイダの有無、設定ファイルの妥当性、壊れた symlink、shell.d の依存サイクル、期限切れパッケージ、無効なプロファイル参照など）。システムに変更は加えない。OK / WARN / ERROR でステータスを表示 |

@@ -128,7 +128,7 @@ Profile が別の profile を継承する指定。例: `work` が `core.stable` 
 ### sync と backup
 
 - **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。**`--plan` でドライラン（変更を適用せず、何が変更されるかをプレビュー。アップグレード可能パッケージもチェックされる。デバッグログは `AL_DEBUG=1` で有効化）**。manual provider のパッケージがある場合は、インストールを促す警告を表示する。
-- **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。
+- **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。**`--dry-run` で実際に commit・push せず、何が backup されるかをプレビュー**。
 
 ---
 
@@ -172,7 +172,7 @@ al update
 | `al doctor` | 環境の破損や不整合を検出（プロバイダの有無、設定ファイルの妥当性、壊れた symlink、shell.d の依存サイクル、期限切れパッケージ、無効なプロファイル参照など）。システムに変更は加えない。OK / WARN / ERROR でステータスを表示 |
 | `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー（実行なし、アップグレードもチェック）。`AL_DEBUG=1` でデバッグログ出力。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
 | `al diff` | 現在のシステムの状態とプロファイルで定義された期待する状態を比較。追加（+）、削除（-）、アップグレード（~）を表示。差分がある場合は終了コード 1 を返す |
-| `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成） |
+| `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成、`--dry-run` でプレビュー） |
 | `al update` | al 本体を最新版に更新 |
 | `al upgrade` | 全 provider と全パッケージをアップグレード（`-y` で確認スキップ） |
 | `al logs` | 実行ログの一覧表示・閲覧。`--list` で最近のログを一覧、引数にログファイル名を指定すると閲覧。ログは `~/.al/logs/` に YYYYMMDD-HHMMSS.log 形式で保存される |

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -116,36 +117,38 @@ func runInitGuided() error {
 		fmt.Printf("Warning: failed to create .gitignore: %v\n", err)
 	}
 
-	// Prompt 1: Primary usage
-	usageModel := ui.NewSelectModel(
-		"What is your primary usage?",
-		[]string{"work", "personal", "mixed"},
+	// Prompt 1: Profile setup strategy
+	setupModel := ui.NewSelectModel(
+		"How would you like to set up profiles?",
+		[]string{"Single profile (core only)", "Multiple profiles (core + additional)"},
 	)
-	p := tea.NewProgram(usageModel)
+	p := tea.NewProgram(setupModel)
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running UI: %w", err)
 	}
-	usage := usageModel.GetSelected()
-	if usage == "" {
-		return fmt.Errorf("usage selection is required")
+	setupChoice := setupModel.GetSelected()
+	if setupChoice == "" {
+		return fmt.Errorf("profile setup selection is required")
 	}
 
-	// Prompt 2: Base profile name
-	var profileName string
-	if usage == "mixed" {
-		// If mixed, ask for profile name
-		nameModel := ui.NewTextInputModel("Enter base profile name", true)
+	// Prompt 2: Additional profile names (if multiple profiles chosen)
+	var additionalProfiles []string
+	if setupChoice == "Multiple profiles (core + additional)" {
+		nameModel := ui.NewTextInputModel("Enter additional profile names (comma-separated)", false)
 		p = tea.NewProgram(nameModel)
 		if _, err := p.Run(); err != nil {
 			return fmt.Errorf("error running UI: %w", err)
 		}
-		profileName = nameModel.GetValue()
-		if profileName == "" {
-			return fmt.Errorf("profile name is required")
+		profileInput := nameModel.GetValue()
+		if profileInput != "" {
+			// Parse comma-separated profile names
+			for _, name := range strings.Split(profileInput, ",") {
+				trimmed := strings.TrimSpace(name)
+				if trimmed != "" && trimmed != "core" {
+					additionalProfiles = append(additionalProfiles, trimmed)
+				}
+			}
 		}
-	} else {
-		// For work/personal, use the usage as profile name
-		profileName = usage
 	}
 
 	// Prompt 3: Enable trial workflow
@@ -183,7 +186,7 @@ func runInitGuided() error {
 		}
 	}
 
-	// Apply template based on trial choice
+	// Apply template based on trial choice for core profile
 	var templateName string
 	if enableTrial {
 		templateName = "stable-trial"
@@ -196,13 +199,14 @@ func runInitGuided() error {
 		return fmt.Errorf("failed to get template '%s': %w", templateName, err)
 	}
 
-	profiles, err := config.ApplyTemplate(template, profileName)
+	// Create core profile(s)
+	coreProfiles, err := config.ApplyTemplate(template, "core")
 	if err != nil {
 		return fmt.Errorf("failed to apply template: %w", err)
 	}
 
-	// Save profiles with custom review days if trial enabled
-	for _, profile := range profiles {
+	// Save core profiles with custom review days if trial enabled
+	for _, profile := range coreProfiles {
 		// Set default package_duplication if not set
 		if profile.PackageDuplication == "" {
 			profile.PackageDuplication = "warn"
@@ -217,6 +221,31 @@ func runInitGuided() error {
 			return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
 		}
 		fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+	}
+
+	// Create additional profiles if any
+	for _, profileName := range additionalProfiles {
+		additionalProfileConfigs, err := config.ApplyTemplate(template, profileName)
+		if err != nil {
+			return fmt.Errorf("failed to apply template for '%s': %w", profileName, err)
+		}
+
+		for _, profile := range additionalProfileConfigs {
+			// Set default package_duplication if not set
+			if profile.PackageDuplication == "" {
+				profile.PackageDuplication = "warn"
+			}
+
+			// Set custom review days for trial profile
+			if enableTrial && profile.Stage == "trial" {
+				profile.ReviewDays = &reviewDays
+			}
+
+			if err := config.AddOrUpdateProfile(profile); err != nil {
+				return fmt.Errorf("failed to add profile '%s': %w", profile.Name, err)
+			}
+			fmt.Printf("Profile '%s' has been set up\n", profile.Name)
+		}
 	}
 
 	// Add provider: brew
@@ -241,10 +270,10 @@ func runInitGuided() error {
 	var defaultProfile string
 	var defaultStage string
 	if enableTrial {
-		defaultProfile = profileName + ".trial"
+		defaultProfile = "core.trial"
 		defaultStage = "trial"
 	} else {
-		defaultProfile = profileName
+		defaultProfile = "core"
 		defaultStage = "stable"
 	}
 
@@ -260,8 +289,10 @@ func runInitGuided() error {
 
 	fmt.Println("\n✓ Initialization complete!")
 	fmt.Printf("\nConfiguration summary:\n")
-	fmt.Printf("  Usage: %s\n", usage)
-	fmt.Printf("  Profile: %s\n", profileName)
+	fmt.Printf("  Profile setup: %s\n", setupChoice)
+	if len(additionalProfiles) > 0 {
+		fmt.Printf("  Additional profiles: %s\n", strings.Join(additionalProfiles, ", "))
+	}
 	trialStatus := "disabled"
 	if enableTrial {
 		trialStatus = "enabled"

@@ -262,7 +262,11 @@ func runInitGuided() error {
 	fmt.Printf("\nConfiguration summary:\n")
 	fmt.Printf("  Usage: %s\n", usage)
 	fmt.Printf("  Profile: %s\n", profileName)
-	fmt.Printf("  Trial workflow: %s\n", map[bool]string{true: "enabled", false: "disabled"}[enableTrial])
+	trialStatus := "disabled"
+	if enableTrial {
+		trialStatus = "enabled"
+	}
+	fmt.Printf("  Trial workflow: %s\n", trialStatus)
 	if enableTrial {
 		fmt.Printf("  Review period: %d days\n", reviewDays)
 	}

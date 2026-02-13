@@ -53,7 +53,11 @@ func (m *SelectModel) View() string {
 	if m.quitting {
 		// Show final selection
 		var b strings.Builder
-		b.WriteString(fmt.Sprintf("%s: %s\n", m.prompt, m.selected))
+		if m.submitted {
+			b.WriteString(fmt.Sprintf("%s: %s\n", m.prompt, m.selected))
+		} else {
+			b.WriteString("Selection cancelled\n")
+		}
 		return b.String()
 	}
 

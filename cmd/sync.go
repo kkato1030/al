@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,31 @@ import (
 	"github.com/kkato1030/al/internal/ui"
 	"github.com/spf13/cobra"
 )
+
+// SyncPlanJSONOutput represents the JSON output format for sync --plan command
+type SyncPlanJSONOutput struct {
+	Actions []SyncAction `json:"actions"`
+	Summary SyncSummary  `json:"summary"`
+}
+
+// SyncAction represents a single action in the sync plan
+type SyncAction struct {
+	Type     string `json:"type"`
+	Provider string `json:"provider"`
+	Name     string `json:"name"`
+	ID       string `json:"id,omitempty"`
+}
+
+// SyncSummary provides summary counts for the sync plan
+type SyncSummary struct {
+	Providers      int      `json:"providers"`
+	Installations  int      `json:"installations"`
+	Upgrades       int      `json:"upgrades"`
+	ManualPackages int      `json:"manual_packages"`
+	Links          int      `json:"links"`
+	Bootstrap      bool     `json:"bootstrap"`
+	Profiles       []string `json:"profiles"`
+}
 
 // debugLog prints debug messages if AL_DEBUG environment variable is set
 func debugLog(format string, args ...interface{}) {
@@ -200,19 +226,23 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 
 	if dryRun {
 		debugLog("Starting plan mode")
+
+		// Initialize variables for plan output
+		var toInstall []config.PackageConfig
+		var toUpgrade []config.PackageConfig
+		var manualPackages []config.PackageConfig
+		var providersToInstall []string
+
 		if doPackages {
 			debugLog("Loading packages configuration")
-			fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+			if !IsJSONOutput() {
+				fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+			}
 			packagesCfg, err := config.LoadPackagesConfig()
 			if err != nil {
 				return fmt.Errorf("load packages: %w", err)
 			}
 			debugLog("Loaded %d packages from config", len(packagesCfg.Packages))
-
-			// Track packages by status
-			var toInstall []config.PackageConfig
-			var toUpgrade []config.PackageConfig
-			var manualPackages []config.PackageConfig
 
 			// Cache provider status and package lists per provider
 			type providerCache struct {
@@ -339,9 +369,8 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 
 			debugLog("Categorization complete: %d to install, %d to upgrade, %d manual", len(toInstall), len(toUpgrade), len(manualPackages))
 
-			fmt.Println("\nPlan:")
-
-			// Show providers to install
+			// Collect providers to install
+			var providersToInstall []string
 			var providersNeeded []string
 			for _, pkg := range packagesCfg.Packages {
 				if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
@@ -350,7 +379,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			}
 			orderedProviders, err := config.ResolveProvidersWithDependencies(providersNeeded)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to resolve provider dependencies: %v\n", err)
+				if !IsJSONOutput() {
+					fmt.Fprintf(os.Stderr, "Warning: failed to resolve provider dependencies: %v\n", err)
+				}
 				orderedProviders = providersNeeded
 			}
 			for _, name := range orderedProviders {
@@ -360,57 +391,43 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				}
 				installed, err := p.CheckInstalled()
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", name, err)
+					if !IsJSONOutput() {
+						fmt.Fprintf(os.Stderr, "Warning: failed to check if provider %s is installed: %v\n", name, err)
+					}
 					continue
 				}
 				if !installed {
-					fmt.Printf("  + provider %s\n", name)
-				}
-			}
-
-			// Show packages to install
-			if len(toInstall) > 0 {
-				for _, pkg := range toInstall {
-					fmt.Printf("  + %s %s\n", pkg.Provider, pkg.Name)
-				}
-			}
-
-			// Show packages to upgrade
-			if len(toUpgrade) > 0 {
-				for _, pkg := range toUpgrade {
-					fmt.Printf("  ~ %s %s (upgrade)\n", pkg.Provider, pkg.Name)
-				}
-			}
-
-			// Show manual packages
-			if len(manualPackages) > 0 {
-				fmt.Println("\n  Manual packages (ensure they are installed):")
-				for _, pkg := range manualPackages {
-					fmt.Printf("    - %s\n", pkg.Name)
+					providersToInstall = append(providersToInstall, name)
 				}
 			}
 		}
 
+		// Collect links
+		var links []config.LinkEntry
 		if doLinks {
-			links, err := config.ListLinks("", "")
+			var err error
+			links, err = config.ListLinks("", "")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to list links: %v\n", err)
-			} else if len(links) > 0 {
-				fmt.Println("\n  Links:")
-				for _, link := range links {
-					fmt.Printf("  + link %s\n", link.Manifest.UserPath)
+				if !IsJSONOutput() {
+					fmt.Fprintf(os.Stderr, "Warning: failed to list links: %v\n", err)
 				}
+				links = []config.LinkEntry{}
 			}
 		}
 
+		// Check for bootstrap script
+		hasBootstrap := false
 		exists, err := config.BootstrapScriptExists()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to check for bootstrap script: %v\n", err)
-		} else if exists {
-			fmt.Println("\n  + bootstrap script")
+			if !IsJSONOutput() {
+				fmt.Fprintf(os.Stderr, "Warning: failed to check for bootstrap script: %v\n", err)
+			}
+		} else {
+			hasBootstrap = exists
 		}
 
-		fmt.Println("\nNo changes will be made in plan mode.")
+		// Output the plan
+		outputSyncPlan(syncTargetNames, toInstall, toUpgrade, manualPackages, providersToInstall, links, hasBootstrap)
 		return nil
 	}
 
@@ -557,4 +574,139 @@ func getProvider(name string) provider.Provider {
 	default:
 		return nil
 	}
+}
+
+// outputSyncPlan outputs the sync plan in either JSON or human-readable format
+func outputSyncPlan(
+	syncTargetNames []string,
+	toInstall, toUpgrade, manualPackages []config.PackageConfig,
+	providersToInstall []string,
+	links []config.LinkEntry,
+	hasBootstrap bool,
+) {
+	if IsJSONOutput() {
+		// Build JSON output
+		actions := make([]SyncAction, 0)
+
+		// Add provider installations
+		for _, name := range providersToInstall {
+			actions = append(actions, SyncAction{
+				Type:     "install_provider",
+				Provider: name,
+				Name:     name,
+			})
+		}
+
+		// Add package installations
+		for _, pkg := range toInstall {
+			actions = append(actions, SyncAction{
+				Type:     "install",
+				Provider: pkg.Provider,
+				Name:     pkg.Name,
+				ID:       pkg.ID,
+			})
+		}
+
+		// Add package upgrades
+		for _, pkg := range toUpgrade {
+			actions = append(actions, SyncAction{
+				Type:     "upgrade",
+				Provider: pkg.Provider,
+				Name:     pkg.Name,
+				ID:       pkg.ID,
+			})
+		}
+
+		// Add manual packages
+		for _, pkg := range manualPackages {
+			actions = append(actions, SyncAction{
+				Type:     "manual",
+				Provider: pkg.Provider,
+				Name:     pkg.Name,
+				ID:       pkg.ID,
+			})
+		}
+
+		// Add links
+		for _, link := range links {
+			actions = append(actions, SyncAction{
+				Type: "link",
+				Name: link.Manifest.UserPath,
+			})
+		}
+
+		// Add bootstrap script
+		if hasBootstrap {
+			actions = append(actions, SyncAction{
+				Type: "bootstrap",
+				Name: "bootstrap script",
+			})
+		}
+
+		output := SyncPlanJSONOutput{
+			Actions: actions,
+			Summary: SyncSummary{
+				Providers:      len(providersToInstall),
+				Installations:  len(toInstall),
+				Upgrades:       len(toUpgrade),
+				ManualPackages: len(manualPackages),
+				Links:          len(links),
+				Bootstrap:      hasBootstrap,
+				Profiles:       syncTargetNames,
+			},
+		}
+
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(output); err != nil {
+			fmt.Fprintf(os.Stderr, "error encoding JSON: %v\n", err)
+		}
+		return
+	}
+
+	// Human-readable output
+	fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+	fmt.Println("\nPlan:")
+
+	// Show providers to install
+	for _, name := range providersToInstall {
+		fmt.Printf("  + provider %s\n", name)
+	}
+
+	// Show packages to install
+	if len(toInstall) > 0 {
+		for _, pkg := range toInstall {
+			fmt.Printf("  + %s %s\n", pkg.Provider, pkg.Name)
+		}
+	}
+
+	// Show packages to upgrade
+	if len(toUpgrade) > 0 {
+		for _, pkg := range toUpgrade {
+			fmt.Printf("  ~ %s %s (upgrade)\n", pkg.Provider, pkg.Name)
+		}
+	}
+
+	// Show manual packages
+	if len(manualPackages) > 0 {
+		fmt.Println("\n  Manual packages (ensure they are installed):")
+		for _, pkg := range manualPackages {
+			fmt.Printf("    - %s\n", pkg.Name)
+		}
+	}
+
+	// Show links
+	if len(links) > 0 {
+		fmt.Println("\n  Links:")
+		for _, link := range links {
+			fmt.Printf("  + link %s\n", link.Manifest.UserPath)
+		}
+	}
+
+	// Show bootstrap script
+	if hasBootstrap {
+		fmt.Println("\n  + bootstrap script")
+	}
+
+	fmt.Println("\nNo changes will be made in plan mode.")
 }

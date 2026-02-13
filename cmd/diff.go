@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -43,6 +44,22 @@ type packageDiff struct {
 	provider string
 	name     string
 	id       string
+}
+
+// DiffJSONOutput represents the JSON output format for diff command
+type DiffJSONOutput struct {
+	Additions []DiffAction `json:"additions"`
+	Removals  []DiffAction `json:"removals"`
+	Upgrades  []DiffAction `json:"upgrades"`
+	HasDrift  bool         `json:"has_drift"`
+}
+
+// DiffAction represents a single diff action in JSON output
+type DiffAction struct {
+	Type     string `json:"type"`
+	Provider string `json:"provider"`
+	Name     string `json:"name"`
+	ID       string `json:"id"`
 }
 
 func runDiff() int {
@@ -441,6 +458,51 @@ func calculateDiff(desired map[string]packageDiff, installed map[string]bool, up
 func displayDiff(result diffResult) {
 	hasChanges := len(result.additions) > 0 || len(result.removals) > 0 || len(result.upgrades) > 0
 
+	// Handle JSON output
+	if IsJSONOutput() {
+		output := DiffJSONOutput{
+			Additions: make([]DiffAction, 0),
+			Removals:  make([]DiffAction, 0),
+			Upgrades:  make([]DiffAction, 0),
+			HasDrift:  hasChanges,
+		}
+
+		for _, pkg := range result.additions {
+			output.Additions = append(output.Additions, DiffAction{
+				Type:     "addition",
+				Provider: pkg.provider,
+				Name:     pkg.name,
+				ID:       pkg.id,
+			})
+		}
+
+		for _, pkg := range result.removals {
+			output.Removals = append(output.Removals, DiffAction{
+				Type:     "removal",
+				Provider: pkg.provider,
+				Name:     pkg.name,
+				ID:       pkg.id,
+			})
+		}
+
+		for _, pkg := range result.upgrades {
+			output.Upgrades = append(output.Upgrades, DiffAction{
+				Type:     "upgrade",
+				Provider: pkg.provider,
+				Name:     pkg.name,
+				ID:       pkg.id,
+			})
+		}
+
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(output); err != nil {
+			fmt.Fprintf(os.Stderr, "error encoding JSON: %v\n", err)
+		}
+		return
+	}
+
+	// Human-readable output
 	if !hasChanges {
 		fmt.Println("No drift detected. System is in sync with desired state.")
 		return

@@ -4,6 +4,12 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.cursor/**'
+      - 'LICENSE'
+      - '.goreleaser.yml'
   workflow_dispatch:
 
 jobs:

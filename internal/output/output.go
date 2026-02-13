@@ -108,7 +108,12 @@ func NewPrefixWriter(w io.Writer, prefix string) *PrefixWriter {
 }
 
 func (p *PrefixWriter) Write(data []byte) (n int, err error) {
-	return p.writer.Write(append([]byte(p.prefix), data...))
+	_, err = p.writer.Write(append([]byte(p.prefix), data...))
+	if err != nil {
+		return 0, err
+	}
+	// Return the number of bytes consumed from input, not including prefix
+	return len(data), nil
 }
 
 // GetToolOutputWriter returns the appropriate writer for tool output

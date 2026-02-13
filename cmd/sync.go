@@ -565,7 +565,8 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		output.Success("Bootstrap script completed")
 	}
 
-	output.Success("\nSync complete!")
+	output.Info("")
+	output.Success("Sync complete!")
 	output.Info("Add the following to your shell config (.zshrc, .bashrc, etc.):")
 	output.Info(`  eval "$(al activate zsh)"  # or bash`)
 	if log != nil {

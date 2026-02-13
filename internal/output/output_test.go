@@ -53,8 +53,9 @@ func TestPrefixWriter(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	if n != len(testData)+len("[test] ") {
-		t.Errorf("Expected %d bytes written, got %d", len(testData)+len("[test] "), n)
+	// Should return the number of bytes consumed from input
+	if n != len(testData) {
+		t.Errorf("Expected %d bytes consumed, got %d", len(testData), n)
 	}
 
 	output := buf.String()
@@ -63,6 +64,11 @@ func TestPrefixWriter(t *testing.T) {
 	}
 	if !strings.Contains(output, "hello world") {
 		t.Errorf("Expected output to contain 'hello world', got %q", output)
+	}
+	// Verify the actual output includes both prefix and data
+	expected := "[test] hello world"
+	if output != expected {
+		t.Errorf("Expected output %q, got %q", expected, output)
 	}
 }
 

@@ -71,10 +71,10 @@ func (p *BrewProvider) Install() error {
 	output.Info("Installing Homebrew...")
 
 	// Run the official Homebrew installation script
+	// Note: Homebrew installation is interactive, so we always show output
 	installScript := "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
 	cmd := exec.Command("sh", "-c", installScript)
 	cmd.Stdin = os.Stdin
-	// In debug mode, show all output; otherwise show it (interactive install)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

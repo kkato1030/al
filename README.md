@@ -371,3 +371,9 @@ al doctor
 1. `al backup --init` でリポジトリ作成と push
 2. 別マシンで `al sync owner/dotal` で clone して適用
 3. 変更後は `al backup` で push
+
+---
+
+## 開発・ビルド・テスト
+
+開発者向けの詳細は [AGENTS.md](AGENTS.md) を参照。ビルドは `make build`、テストは `make test`。e2e テストは CI（macOS runner）で自動実行される。

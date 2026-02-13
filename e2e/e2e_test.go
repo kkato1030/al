@@ -48,9 +48,18 @@ func TestMain(m *testing.M) {
 // runAl runs the al binary with AL_HOME=dir and args, returns stdout, stderr, and exit code.
 func runAl(t *testing.T, dir string, args ...string) (stdout, stderr string, code int) {
 	t.Helper()
+	return runAlWithStdin(t, dir, "", args...)
+}
+
+// runAlWithStdin is like runAl but feeds stdin to the command (e.g. for confirmations).
+func runAlWithStdin(t *testing.T, dir string, stdin string, args ...string) (stdout, stderr string, code int) {
+	t.Helper()
 	cmd := exec.Command(alBinary, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "AL_HOME="+dir)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -161,5 +170,276 @@ func TestE2E_InitThenDoctor(t *testing.T) {
 	if code != 0 {
 		t.Logf("al doctor stderr: %s", stderr)
 		t.Fatalf("al doctor exited with code %d", code)
+	}
+}
+
+// --- Section 1: Easy additions (non-interactive, no external deps) ---
+
+func TestE2E_Version(t *testing.T) {
+	dir := t.TempDir()
+	stdout, _, code := runAl(t, dir, "version")
+	if code != 0 {
+		t.Fatalf("al version exited with code %d", code)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Error("al version should output something")
+	}
+}
+
+func TestE2E_ConfigAliasList(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "config", "alias", "list")
+	if code != 0 {
+		t.Fatalf("al config alias list exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "add") && !strings.Contains(stdout, "package") {
+		t.Errorf("alias list should show aliases; got: %s", stdout)
+	}
+}
+
+func TestE2E_ProviderList(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "provider", "list")
+	if code != 0 {
+		t.Fatalf("al provider list exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "brew") {
+		t.Errorf("provider list should contain brew; got: %s", stdout)
+	}
+}
+
+func TestE2E_ProfileAddListShow(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "profile", "add", "work", "-d", "e2e profile")
+	if code != 0 {
+		t.Fatalf("al profile add work exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "profile", "list")
+	if code != 0 {
+		t.Fatalf("al profile list exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "work") {
+		t.Errorf("profile list should contain work; got: %s", stdout)
+	}
+	stdout, _, code = runAl(t, dir, "profile", "show", "work")
+	if code != 0 {
+		t.Fatalf("al profile show work exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "work") {
+		t.Errorf("profile show work should mention work; got: %s", stdout)
+	}
+}
+
+func TestE2E_PackageShow(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "provider", "add", "manual")
+	if code != 0 {
+		t.Fatalf("al provider add manual exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "add", "--prv", "manual", "e2e-pkg")
+	if code != 0 {
+		t.Fatalf("al add manual e2e-pkg exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "package", "show", "e2e-pkg")
+	if code != 0 {
+		t.Fatalf("al package show e2e-pkg exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "e2e-pkg") || !strings.Contains(stdout, "manual") {
+		t.Errorf("package show should show e2e-pkg and manual; got: %s", stdout)
+	}
+}
+
+func TestE2E_PackageRemove(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "provider", "add", "manual")
+	if code != 0 {
+		t.Fatalf("al provider add manual exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "add", "--prv", "manual", "e2e-pkg")
+	if code != 0 {
+		t.Fatalf("al add manual e2e-pkg exited with code %d", code)
+	}
+	// manual provider remove prompts "Have you already uninstalled? [y/N]"; feed "y"
+	_, _, code = runAlWithStdin(t, dir, "y\n", "remove", "e2e-pkg", "--prv", "manual", "--prf", "core")
+	if code != 0 {
+		t.Fatalf("al remove e2e-pkg exited with code %d", code)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "packages.json"))
+	if err != nil {
+		t.Fatalf("read packages.json: %v", err)
+	}
+	var cfg struct {
+		Packages []struct {
+			Name string `json:"name"`
+		} `json:"packages"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("parse packages.json: %v", err)
+	}
+	for _, p := range cfg.Packages {
+		if p.Name == "e2e-pkg" {
+			t.Error("e2e-pkg should be removed from packages.json")
+		}
+	}
+}
+
+func TestE2E_ConfigSet(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "config", "set", "--default-profile", "core.trial")
+	if code != 0 {
+		t.Fatalf("al config set exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "config", "show")
+	if code != 0 {
+		t.Fatalf("al config show exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "core.trial") {
+		t.Errorf("config show should contain core.trial after set; got: %s", stdout)
+	}
+}
+
+func TestE2E_ActivateZsh(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "activate", "zsh")
+	if code != 0 {
+		t.Fatalf("al activate zsh exited with code %d", code)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Error("al activate zsh should output shell code")
+	}
+}
+
+func TestE2E_LogsList(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "logs", "--list")
+	if code != 0 {
+		t.Fatalf("al logs --list exited with code %d", code)
+	}
+}
+
+func TestE2E_ProfileTemplateList(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "profile", "template", "list")
+	if code != 0 {
+		t.Fatalf("al profile template list exited with code %d", code)
+	}
+}
+
+// --- Section 2: sync / backup dry-run (no GitHub) ---
+
+func TestE2E_SyncPlan(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "sync", "--plan")
+	if code != 0 {
+		t.Fatalf("al sync --plan exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "Plan") && !strings.Contains(stdout, "plan") && !strings.Contains(stdout, "profiles") {
+		t.Errorf("sync --plan should output plan; got: %s", stdout)
+	}
+}
+
+func TestE2E_BackupDryRun(t *testing.T) {
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "backup", "--dry-run", "--repo", "foo/bar")
+	if code != 0 {
+		t.Fatalf("al backup --dry-run --repo foo/bar exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "dry-run") && !strings.Contains(stdout, "foo/bar") {
+		t.Errorf("backup --dry-run should show preview; got: %s", stdout)
+	}
+}
+
+// --- Section 3: link.d ---
+
+func TestE2E_LinkAddList(t *testing.T) {
+	dir := t.TempDir()
+	linkTarget := filepath.Join(dir, "linksrc")
+	if err := os.MkdirAll(linkTarget, 0755); err != nil {
+		t.Fatalf("create link target dir: %v", err)
+	}
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "link", "add", "e2elink", "--path", linkTarget)
+	if code != 0 {
+		t.Fatalf("al link add e2elink exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "link", "list")
+	if code != 0 {
+		t.Fatalf("al link list exited with code %d", code)
+	}
+	if !strings.Contains(stdout, "e2elink") {
+		t.Errorf("link list should contain e2elink; got: %s", stdout)
+	}
+}
+
+// --- Section 4: darwin only (diff) ---
+
+func TestE2E_Diff(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("e2e diff requires darwin")
+	}
+	dir := t.TempDir()
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "provider", "add", "manual")
+	if code != 0 {
+		t.Fatalf("al provider add manual exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "add", "--prv", "manual", "e2e-pkg")
+	if code != 0 {
+		t.Fatalf("al add manual e2e-pkg exited with code %d", code)
+	}
+	_, _, code = runAl(t, dir, "diff")
+	// diff exits 0 when no drift, 1 when there is drift
+	if code != 0 && code != 1 {
+		t.Fatalf("al diff should exit 0 or 1, got %d", code)
 	}
 }

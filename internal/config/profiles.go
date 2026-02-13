@@ -316,3 +316,98 @@ func GetSyncTargetProfileNames(mode string, profileName string) ([]string, error
 		return nil, fmt.Errorf("invalid sync mode: %s", mode)
 	}
 }
+
+// SortProfilesForDisplay sorts profiles for display in the following order:
+// 1. Group by base profile name (part before the dot)
+// 2. Within each group: stable (no stage or explicit "stable") before trial
+// 3. Groups ordered: "core" first, then alphabetically
+func SortProfilesForDisplay(profiles []ProfileConfig) []ProfileConfig {
+	if len(profiles) == 0 {
+		return profiles
+	}
+
+	// Group profiles by base name
+	type profileGroup struct {
+		baseName string
+		profiles []ProfileConfig
+	}
+
+	groupMap := make(map[string]*profileGroup)
+	var groupOrder []string
+
+	for _, p := range profiles {
+		baseName, _, err := ParseProfileName(p.Name)
+		if err != nil {
+			// If parsing fails, use the full name as base
+			baseName = p.Name
+		}
+
+		if _, exists := groupMap[baseName]; !exists {
+			groupMap[baseName] = &profileGroup{baseName: baseName}
+			groupOrder = append(groupOrder, baseName)
+		}
+
+		// Store both baseName and stageName for sorting within group
+		groupMap[baseName].profiles = append(groupMap[baseName].profiles, p)
+	}
+
+	// Sort groups: "core" first, then alphabetically
+	sortGroupOrder := func(groups []string) []string {
+		var coreGroups []string
+		var otherGroups []string
+
+		for _, g := range groups {
+			if g == "core" {
+				coreGroups = append(coreGroups, g)
+			} else {
+				otherGroups = append(otherGroups, g)
+			}
+		}
+
+		// Sort other groups alphabetically
+		for i := 0; i < len(otherGroups); i++ {
+			for j := i + 1; j < len(otherGroups); j++ {
+				if strings.ToLower(otherGroups[i]) > strings.ToLower(otherGroups[j]) {
+					otherGroups[i], otherGroups[j] = otherGroups[j], otherGroups[i]
+				}
+			}
+		}
+
+		return append(coreGroups, otherGroups...)
+	}
+
+	groupOrder = sortGroupOrder(groupOrder)
+
+	// Sort profiles within each group: stable before trial
+	for _, group := range groupMap {
+		profiles := group.profiles
+		for i := 0; i < len(profiles); i++ {
+			for j := i + 1; j < len(profiles); j++ {
+				_, stageI, _ := ParseProfileName(profiles[i].Name)
+				_, stageJ, _ := ParseProfileName(profiles[j].Name)
+
+				// Stable (empty or "stable") comes before trial
+				isStableI := stageI == "" || stageI == "stable"
+				isStableJ := stageJ == "" || stageJ == "stable"
+
+				if !isStableI && isStableJ {
+					profiles[i], profiles[j] = profiles[j], profiles[i]
+				} else if isStableI == isStableJ {
+					// If both are stable or both are trial, sort alphabetically by stage name
+					if strings.ToLower(stageI) > strings.ToLower(stageJ) {
+						profiles[i], profiles[j] = profiles[j], profiles[i]
+					}
+				}
+			}
+		}
+		group.profiles = profiles
+	}
+
+	// Build the final sorted list
+	var result []ProfileConfig
+	for _, baseName := range groupOrder {
+		result = append(result, groupMap[baseName].profiles...)
+	}
+
+	return result
+}

@@ -21,9 +21,10 @@ func SetVersion(v string) {
 // NewRootCmd creates the root command
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "al",
-		Short: "Mac Management Tools",
-		Long:  "al - Mac Management Tools",
+		Use:           "al",
+		Short:         "Mac Management Tools",
+		Long:          "al - Mac Management Tools",
+		SilenceErrors: true, // Prevent Cobra from printing errors automatically (we handle it in main.go)
 	}
 
 	helpTemplate := `{{with (or .Long .Short)}}{{. | trimTrailingWhitespaces}}

@@ -500,7 +500,6 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			if !installed {
 				continue
 			}
-			output.Info("Installing package %s (%s)...", pkg.Name, pkg.ID)
 			if err := p.InstallPackage(pkg.ID); err != nil {
 				return fmt.Errorf("install package %s: %w", pkg.Name, err)
 			}
@@ -565,7 +564,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		output.Success("Bootstrap script completed")
 	}
 
-	output.Info("")
+	fmt.Println() // Add spacing
 	output.Success("Sync complete!")
 	output.Info("Add the following to your shell config (.zshrc, .bashrc, etc.):")
 	output.Info(`  eval "$(al activate zsh)"  # or bash`)

@@ -6,22 +6,22 @@
 
 ## 1. コマンド変更時の README 更新（必須）
 
-**ルール**: `al` の CLI コマンド・サブコマンド・オプション・エイリアス・挙動に変更を加えた場合は、**必ず README.md を更新**すること。
+**ルール**: `al` の CLI コマンド・サブコマンド・オプション・エイリアス・挙動に変更を加えた場合は、**必ず README.md を更新**し、必要に応じて **docs/en および docs/ja の該当ページ**も更新すること。
 
 - **対象**: ルートコマンド・`al config`・`al profile`・`al provider`・`al package`・`al link` の追加・削除・名前変更・フラグ変更・説明の変更
-- **更新箇所**: README.md の「コマンドリファレンス」「機能一覧」「Quick Start」「使用例」など、影響する記述すべて
-- **目的**: 利用者が README だけで正しく `al` を使える状態を維持する
+- **更新箇所**: README.md（および README.ja.md）の「コマンド一覧」「機能概要」「Quick Start」など影響する記述。詳細は docs/en（command-reference.md、各 guides 等）と docs/ja の同構成を整合させる。
+- **目的**: 利用者向けの一次情報は README と docs（言語別）に分かれており、いずれも正しく `al` を使える状態を維持する。
 
 作業の流れの例:
 1. `cmd/` 以下でコマンド実装を変更
-2. 変更内容を README.md に反映（表・説明文・使用例）
-3. 必要なら「Brewfile からの移行」「概念」の記述も整合させる
+2. 変更内容を README.md（および README.ja.md）に反映。詳細は docs/en と docs/ja の該当ページ（command-reference、concepts、guides 等）に反映
+3. 必要なら Brewfile 移行・概念の記述も整合させる
 
 ---
 
 ## 2. コマンド入出力・対話
 
-**ルール**: コマンド・サブコマンドの**入出力**（引数・フラグ・stdout/stderr・メッセージ形式・`--json`）および**対話**（確認プロンプト・対話モード・TUI）を追加・変更する場合は、**docs/command-io-guidelines.md に従う**こと。
+**ルール**: コマンド・サブコマンドの**入出力**（引数・フラグ・stdout/stderr・メッセージ形式・`--json`）および**対話**（確認プロンプト・対話モード・TUI）を追加・変更する場合は、**docs/internals/command-io-guidelines.md に従う**こと。
 
 - 新規コマンドは、ガイドラインの「入力設計」「出力形式」「メッセージ種別」「対話インターフェース」に合わせて実装する。
 - 既存コマンドのリファインは、ガイドライン策定後に順次行う。§8 チェックリストに「入出力・対話は command-io-guidelines に準拠しているか」を追加してもよい。
@@ -65,7 +65,7 @@
 - **構成**: Cobra によるサブコマンド、設定は `~/.al`（または `$AL_HOME`）
 - **主要概念**: Profile / Stage（trial・stable）/ Provider（brew, mas, manual）/ link.d / shell.d / sync・backup
 
-詳細は README.md の「概念」「機能一覧」を参照。
+詳細は README.md および docs/en・docs/ja の「概念」「機能概要」を参照。
 
 ---
 
@@ -76,11 +76,11 @@
 - **`main.go`**: エントリポイント。バージョン・ビルド情報は ldflags で注入（Makefile 参照）
 - **`e2e/`**: e2e テスト。CI の macOS runner でのみ実行される（ローカルでは `GITHUB_ACTIONS` 未設定のためスキップ）。
 - **`testdata/`**: テスト用データ（例: Brewfile）
-- **`docs/`**: 設計・計画メモ（必要に応じて参照）。jj コマンドのチートシートは `docs/jj-cheat-sheet.md` を参照
+- **`docs/`**: 利用者向け（docs/en, docs/ja）と開発・設計用（docs/internals/。command-io-guidelines, jj-cheat-sheet 等）。jj コマンドのチートシートは `docs/internals/jj-cheat-sheet.md` を参照
 - **`.github/workflows/`**: CI（単体テストは ubuntu、e2e は macos-latest）
 - **`.goreleaser.yml`**: リリース・ビルド設定
 
-コマンドを追加・変更するときは `cmd/` と README.md の両方を整合させる。
+コマンドを追加・変更するときは `cmd/`、README.md（および README.ja.md）、必要に応じて docs/en と docs/ja の該当ページを整合させる。
 
 ---
 
@@ -101,15 +101,15 @@
 - **エイリアス**: `al add` などは `al config alias list` で確認できるエイリアス。実体は `al package add` 等。エイリアスを変える場合は README の「エイリアス」の記述も更新する。
 - **バージョン**: バイナリのバージョンは `main.Version`（ldflags）で渡している。リリース手順（GoReleaser 等）と Makefile の `VERSION` を整合させる。
 - **互換性**: 設定ファイル（`~/.al` 内）の形式や CLI の破壊的変更を行う場合は、CHANGELOG や README で明示し、可能なら移行手順を書く。
-- **ドキュメントの優先順位**: 利用者向けの一次情報は README.md。AGENTS.md は開発・AI 向けの手順とルールである。
+- **ドキュメントの優先順位**: 利用者向けの一次情報は README.md（および README.ja.md）と docs/en・docs/ja。AGENTS.md は開発・AI 向けの手順とルールである。
 
 ---
 
 ## 8. チェックリスト（コマンド変更時）
 
 - [ ] `cmd/` の実装を変更した
-- [ ] README.md のコマンドリファレンス・機能一覧・使用例を更新した
-- [ ] 入出力・対話を変更した場合、docs/command-io-guidelines.md に準拠しているか確認した
+- [ ] README.md（および README.ja.md）のコマンド一覧・機能概要・Quick Start を更新した。必要に応じて docs/en と docs/ja の該当ページ（command-reference、concepts、guides 等）も更新した
+- [ ] 入出力・対話を変更した場合、docs/internals/command-io-guidelines.md に準拠しているか確認した
 - [ ] `make fmt && make vet && make test` を実行した
 - [ ] （任意）`make lint` を実行した
 - [ ] （任意）`make build-release` でビルドし、`bin/al` で代表的なコマンドを手動確認した
@@ -120,7 +120,7 @@
 
 ## 9. 開発の標準フロー（jj + GitHub）
 
-本リポジトリは Jujutsu（jj）でバージョン管理する想定である。変更をコミットして PR まで出す一連の流れは以下を標準とする。jj の用語・詳細は `docs/jj-cheat-sheet.md` を参照。
+本リポジトリは Jujutsu（jj）でバージョン管理する想定である。変更をコミットして PR まで出す一連の流れは以下を標準とする。jj の用語・詳細は `docs/internals/jj-cheat-sheet.md` を参照。
 
 1. **変更を加える**  
    コードやドキュメントを編集する。ワーキングコピー（@）に変更が載る。
@@ -156,7 +156,7 @@
 | 種別 | ツール／コマンド | 用途・備考 |
 |------|------------------|-------------|
 | ビルド・テスト | `make`（Makefile のターゲット） | `fmt`, `vet`, `lint`, `test`, `build`, `run`, `clean` 等（§3 参照）。Go 系はすべて make 経由とし、直接 `go` は使わない。足りなければ新規 Make ターゲットを検討する。 |
-| VCS（jj） | `jj` | `status`, `log`, `describe`, `new`, `edit`, `undo`, `git push`, `git fetch`, `bookmark` 等（§9・`docs/jj-cheat-sheet.md` 参照） |
+| VCS（jj） | `jj` | `status`, `log`, `describe`, `new`, `edit`, `undo`, `git push`, `git fetch`, `bookmark` 等（§9・`docs/internals/jj-cheat-sheet.md` 参照） |
 | GitHub | `gh` | `pr create`, `auth status`, `pr view`, `pr list` 等、PR 作成・状態確認 |
 | Git（参照） | `git` | `status`, `branch`, `log` 等、状態確認のための読み取り系 |
 | ウェブ検索 | （エージェント組み込み） | ドキュメント・API・技術情報の確認は確認せず実行してよい |

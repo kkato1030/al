@@ -96,7 +96,7 @@ spinner.Update(message)                 // Update message
 
 ### Manual Testing
 - ✅ Demo script created (`demo_output.sh`)
-- ✅ Documentation written (`docs/output-organization.md`)
+- ✅ Documentation written (`docs/internals/output-organization.md`)
 
 ## Usage Examples
 
@@ -159,7 +159,7 @@ $ AL_DEBUG=1 al package add git
 
 ## Documentation
 
-- ✅ `docs/output-organization.md` - Complete feature documentation
+- ✅ `docs/internals/output-organization.md` - Complete feature documentation
 - ✅ `demo_output.sh` - Demo script
 - ✅ Code comments updated
 - ✅ This summary document

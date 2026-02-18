@@ -116,11 +116,22 @@ func (p *PrefixWriter) Write(data []byte) (n int, err error) {
 	return len(data), nil
 }
 
-// GetToolOutputWriter returns the appropriate writer for tool output
+// GetToolOutputWriter returns the appropriate writer for tool stdout
 // In debug mode, returns stderr with prefix. Otherwise, discards output.
 func GetToolOutputWriter(tool string) io.Writer {
 	if IsDebugMode() {
 		return NewPrefixWriter(os.Stderr, fmt.Sprintf("[%s] ", tool))
 	}
 	return DiscardWriter{}
+}
+
+// GetToolErrorWriter returns the appropriate writer for tool stderr
+// Always returns stderr to ensure password prompts and errors are visible.
+// In debug mode, adds a prefix for clarity.
+func GetToolErrorWriter(tool string) io.Writer {
+	if IsDebugMode() {
+		return NewPrefixWriter(os.Stderr, fmt.Sprintf("[%s] ", tool))
+	}
+	// Always pass through stderr for interactive prompts (like sudo password)
+	return os.Stderr
 }

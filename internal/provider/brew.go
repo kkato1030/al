@@ -222,14 +222,14 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 			// Check if tap is already tapped
 			tapInfoCmd := exec.Command("brew", "tap-info", tapName)
 			tapInfoCmd.Stdout = output.GetToolOutputWriter("brew")
-			tapInfoCmd.Stderr = output.GetToolOutputWriter("brew")
+			tapInfoCmd.Stderr = output.GetToolErrorWriter("brew")
 			if err := tapInfoCmd.Run(); err != nil {
 				// Tap is not added yet, add it
 				output.Info("Tapping %s...", tapName)
 				tapCmd := exec.Command("brew", "tap", tapName)
 				tapCmd.Stdin = os.Stdin
 				tapCmd.Stdout = output.GetToolOutputWriter("brew")
-				tapCmd.Stderr = output.GetToolOutputWriter("brew")
+				tapCmd.Stderr = output.GetToolErrorWriter("brew")
 
 				if err := tapCmd.Run(); err != nil {
 					return fmt.Errorf("failed to tap %s: %w", tapName, err)
@@ -257,7 +257,7 @@ func (p *BrewProvider) InstallPackage(packageID string) error {
 	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("brew")
-	cmd.Stderr = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -302,7 +302,7 @@ func (p *BrewProvider) UninstallPackage(packageID string) error {
 	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("brew")
-	cmd.Stderr = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -348,7 +348,7 @@ func (p *BrewProvider) UpgradePackage(packageID string) error {
 	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("brew")
-	cmd.Stderr = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -379,7 +379,7 @@ func (p *BrewProvider) Upgrade() error {
 	updateCmd := exec.Command("brew", "update")
 	updateCmd.Stdin = os.Stdin
 	updateCmd.Stdout = output.GetToolOutputWriter("brew")
-	updateCmd.Stderr = output.GetToolOutputWriter("brew")
+	updateCmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = updateCmd.Run()
 	spinner.Stop()

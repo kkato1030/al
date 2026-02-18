@@ -552,7 +552,7 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		// For bootstrap scripts, show output in debug mode
 		if output.IsDebugMode() {
 			cmd.Stdout = output.GetToolOutputWriter("bootstrap")
-			cmd.Stderr = output.GetToolOutputWriter("bootstrap")
+			cmd.Stderr = output.GetToolErrorWriter("bootstrap")
 		} else {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

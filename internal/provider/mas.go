@@ -78,7 +78,7 @@ func (p *MasProvider) Install() error {
 	cmd := exec.Command("brew", "install", "mas")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("brew")
-	cmd.Stderr = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -138,7 +138,7 @@ func (p *MasProvider) InstallPackage(packageID string) error {
 	cmd := exec.Command("mas", "install", packageID)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("mas")
-	cmd.Stderr = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolErrorWriter("mas")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -170,7 +170,7 @@ func (p *MasProvider) UninstallPackage(packageID string) error {
 	cmd := exec.Command("mas", "uninstall", packageID)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("mas")
-	cmd.Stderr = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolErrorWriter("mas")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -202,7 +202,7 @@ func (p *MasProvider) UpgradePackage(packageID string) error {
 	cmd := exec.Command("mas", "upgrade", packageID)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("mas")
-	cmd.Stderr = output.GetToolOutputWriter("mas")
+	cmd.Stderr = output.GetToolErrorWriter("mas")
 
 	err = cmd.Run()
 	spinner.Stop()
@@ -244,7 +244,7 @@ func (p *MasProvider) Upgrade() error {
 	cmd := exec.Command("brew", "upgrade", "mas")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = output.GetToolOutputWriter("brew")
-	cmd.Stderr = output.GetToolOutputWriter("brew")
+	cmd.Stderr = output.GetToolErrorWriter("brew")
 
 	err = cmd.Run()
 	spinner.Stop()

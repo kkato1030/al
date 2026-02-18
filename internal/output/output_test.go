@@ -92,6 +92,27 @@ func TestGetToolOutputWriter(t *testing.T) {
 	}
 }
 
+func TestGetToolErrorWriter(t *testing.T) {
+	// Save original value
+	originalValue := os.Getenv("AL_DEBUG")
+	defer os.Setenv("AL_DEBUG", originalValue)
+
+	// Test when AL_DEBUG is not set - should return os.Stderr
+	os.Unsetenv("AL_DEBUG")
+	writer := GetToolErrorWriter("brew")
+	// os.Stderr is a *os.File, so we check if it's the same pointer
+	if writer != os.Stderr {
+		t.Error("Expected os.Stderr when AL_DEBUG is not set")
+	}
+
+	// Test when AL_DEBUG is set - should return PrefixWriter
+	os.Setenv("AL_DEBUG", "1")
+	writer = GetToolErrorWriter("brew")
+	if _, ok := writer.(*PrefixWriter); !ok {
+		t.Error("Expected PrefixWriter when AL_DEBUG is set")
+	}
+}
+
 func TestSpinner(t *testing.T) {
 	// Save original value
 	originalValue := os.Getenv("AL_DEBUG")

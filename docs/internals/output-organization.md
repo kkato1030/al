@@ -19,12 +19,20 @@ The `al` CLI now distinguishes between its own output and output from internal t
 
 ### 2. Tool Output Suppression
 
-By default, `al` suppresses output from internal tools (brew, mas, shell commands) and only shows its own messages:
+By default, `al` suppresses stdout from internal tools (brew, mas, shell commands) and only shows its own messages. However, stderr is always displayed to ensure password prompts and error messages are visible:
 
 ```bash
 $ al package add git
 Installing package git (formula:git)...
 ✓ Installed git
+```
+
+If a tool requires sudo password, the prompt will be visible even in normal mode:
+```bash
+$ al package add some-tool
+Installing package some-tool...
+Password:  # This prompt is visible and interactive
+✓ Installed some-tool
 ```
 
 ### 3. Debug Mode
@@ -84,7 +92,8 @@ The `internal/output` package provides utilities for consistent output:
 - `Error()` - Print error messages with ✗
 - `DebugLog()` - Print debug messages (only when AL_DEBUG=1)
 - `NewSpinner()` - Create a loading spinner
-- `GetToolOutputWriter()` - Get appropriate writer for tool output
+- `GetToolOutputWriter()` - Get appropriate writer for tool stdout
+- `GetToolErrorWriter()` - Get appropriate writer for tool stderr (always shows stderr for password prompts)
 
 ### Provider Updates
 
@@ -109,8 +118,9 @@ spinner.Start()
 
 // Execute command with appropriate output handling
 cmd := exec.Command("brew", "install", pkgName)
-cmd.Stdout = output.GetToolOutputWriter("brew")
-cmd.Stderr = output.GetToolOutputWriter("brew")
+cmd.Stdin = os.Stdin // Always connect stdin for interactive prompts
+cmd.Stdout = output.GetToolOutputWriter("brew") // Suppress stdout unless in debug mode
+cmd.Stderr = output.GetToolErrorWriter("brew")  // Always show stderr for password prompts
 err := cmd.Run()
 
 spinner.Stop()

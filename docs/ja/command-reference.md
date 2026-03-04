@@ -8,7 +8,7 @@
 | `al activate zsh` / `bash` | シェル用コードを出力（Homebrew 初期化、brew/mas のフック、shell.d のスニペット）。`.zshrc` 等に `eval "$(al activate zsh)"` を追加する。trial のレビュー期限切れがあると stderr に案内を表示 |
 | `al review` | レビュー期限切れの trial パッケージを対話で解決（remove / promote / postpone） |
 | `al doctor` | 環境の破損や不整合を検出（プロバイダの有無、設定ファイルの妥当性、壊れた symlink、shell.d の依存サイクル、期限切れパッケージ、無効なプロファイル参照など）。システムに変更は加えない。OK / WARN / ERROR でステータスを表示 |
-| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる |
+| `al sync [owner/repo]` | `~/.al` が無ければ clone し、provider/パッケージ/link を適用。最後に bootstrap スクリプトがあれば実行。`--plan` で変更内容をプレビュー。`--all` で全プロファイル、`--profile <name>` で特定プロファイルを対象にできる。`--prv <name>` で特定プロバイダのパッケージのみを同期（例: `--prv brew`） |
 | `al diff` | 現在のシステムの状態とプロファイルで定義された期待する状態を比較。追加（+）、削除（-）、アップグレード（~）を表示。差分がある場合は終了コード 1 を返す |
 | `al backup` | `~/.al` を commit して GitHub に push（`--init` でリポジトリ作成、`--dry-run` でプレビュー） |
 | `al update` | al 本体を最新版に更新 |

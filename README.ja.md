@@ -77,7 +77,7 @@ al backup --init           # リポジトリ作成と push（初回）
 | `al activate zsh`/`bash` | シェル連携（rc に `eval "$(al activate zsh)"` を追加）。 |
 | `al review` | 期限切れ trial パッケージの解決。 |
 | `al doctor` | 環境の診断。 |
-| `al sync [owner/repo]` | 設定の適用（必要なら clone）。`--plan` でプレビュー。 |
+| `al sync [owner/repo]` | 設定の適用（必要なら clone）。`--plan` でプレビュー。`--prv brew` で brew のみを同期。 |
 | `al diff` | システムとプロファイルの比較。 |
 | `al backup` | `~/.al` を commit して GitHub に push。 |
 | `al upgrade` | provider とパッケージのアップグレード。 |

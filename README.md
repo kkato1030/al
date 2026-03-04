@@ -77,7 +77,7 @@ More: [Concepts (en)](docs/en/concepts.md) \| [概念（ja）](docs/ja/concepts.
 | `al activate zsh`/`bash` | Shell integration (add `eval "$(al activate zsh)"` to rc). |
 | `al review` | Resolve expired trial packages. |
 | `al doctor` | Check environment. |
-| `al sync [owner/repo]` | Apply config (clone if needed). `--plan` to preview. |
+| `al sync [owner/repo]` | Apply config (clone if needed). `--plan` to preview. `--prv brew` to sync only brew packages. |
 | `al diff` | Compare system vs profiles. |
 | `al backup` | Commit and push `~/.al` to GitHub. |
 | `al upgrade` | Upgrade providers and packages. |

@@ -8,7 +8,7 @@
 | `al activate zsh` / `bash` | Output shell code (Homebrew init, brew/mas hooks, shell.d snippets). Add `eval "$(al activate zsh)"` to `.zshrc` etc. Shows trial review expiry on stderr when applicable. |
 | `al review` | Interactively resolve expired trial packages (remove / promote / postpone). |
 | `al doctor` | Check for issues (providers, config, broken symlinks, shell.d cycles, expired packages, invalid profile refs). No system changes. Shows OK / WARN / ERROR. |
-| `al sync [owner/repo]` | Clone if `~/.al` missing, then apply providers/packages/links; run bootstrap if present. `--plan` to preview without applying (checks upgrades too). `AL_DEBUG=1` for debug logs. `--all` or `--profile <name>`. |
+| `al sync [owner/repo]` | Clone if `~/.al` missing, then apply providers/packages/links; run bootstrap if present. `--plan` to preview without applying (checks upgrades too). `AL_DEBUG=1` for debug logs. `--all` or `--profile <name>`. `--prv <name>` to sync only packages from a specific provider (e.g. `--prv brew`). |
 | `al diff` | Compare current system state to profiles. Shows additions (+), removals (-), upgrades (~). Exit code 1 if there is drift. |
 | `al backup` | Commit `~/.al` and push to GitHub. `--init` to create repo, `--dry-run` to preview. |
 | `al update` | Update al to the latest release. |

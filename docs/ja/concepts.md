@@ -39,5 +39,5 @@ Profile が別の profile を継承する指定。例: `work` が `core.stable` 
 
 ## sync と backup
 
-- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。**`--plan`** でドライラン（変更を適用せずプレビュー。アップグレード可能パッケージもチェック。`AL_DEBUG=1` でデバッグログ有効化）。manual provider のパッケージがある場合は、インストールを促す警告を表示する。
+- **sync**: `~/.al` が無い場合は指定した `owner/repo` を clone してから、provider の確保・パッケージのインストール・link.d の symlink 適用を行う。既に存在する場合は適用のみ。最後に `~/.al/bootstrap/script.sh` が存在すれば実行する。`--all` で AutoSync 有効な profile をすべて対象、`--profile <name>` で指定 profile とその extends のみ。`--pkg-only` / `--link-only` でパッケージのみ / link のみ。**`--prv <名前>`** で特定プロバイダのパッケージのみを同期（例: `--prv brew`）。**`--plan`** でドライラン（変更を適用せずプレビュー。アップグレード可能パッケージもチェック。`AL_DEBUG=1` でデバッグログ有効化）。manual provider のパッケージがある場合は、インストールを促す警告を表示する。
 - **backup**: `~/.al` を commit して GitHub に push。`--init` でリポジトリが無ければ作成。`--repo owner/repo` で保存先を指定。デフォルトは `gh` で取得したユーザの `dotal`。**`--dry-run`** で実際に commit・push せずプレビュー。

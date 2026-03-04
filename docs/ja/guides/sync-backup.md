@@ -5,7 +5,7 @@
 - **初回（`~/.al` が無い）**: `al sync owner/repo` でリポジトリを `~/.al` に clone し、provider・パッケージ・link.d の symlink を適用。最後に `~/.al/bootstrap/script.sh` があれば実行する。
 - **既存の `~/.al`**: `al sync [owner/repo]` は適用のみ（clone しない）。
 - **対象**: `--all` で全 AutoSync プロファイル。`--profile <名前>` で指定プロファイルとその extends のみ。
-- **限定**: `--pkg-only` または `--link-only` でパッケージのみ / link のみを適用。
+- **限定**: `--pkg-only` または `--link-only` でパッケージのみ / link のみを適用。`--prv <名前>` で特定プロバイダのパッケージのみを同期（例: `--prv brew` で brew のみ）。
 - **ドライラン**: `al sync --plan` で変更内容（およびアップグレード可能パッケージ）を表示し、適用は行わない。`AL_DEBUG=1` でデバッグログを有効化。
 - **JSON**: `al sync --plan --json` で機械可読なプラン出力。
 

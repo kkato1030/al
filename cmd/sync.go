@@ -69,6 +69,13 @@ func loggedFprintf(w io.Writer, log *logger.Logger, format string, args ...inter
 	}
 }
 
+// validProviders is the set of valid provider names for --prv flag
+var validProviders = map[string]bool{
+	"brew":   true,
+	"mas":    true,
+	"manual": true,
+}
+
 // NewSyncCmd creates the sync command
 func NewSyncCmd() *cobra.Command {
 	var dryRun bool
@@ -79,14 +86,15 @@ func NewSyncCmd() *cobra.Command {
 	var pkgOnly bool
 	var linkOnly bool
 	var force bool
+	var providerFilter string
 
 	cmd := &cobra.Command{
 		Use:   "sync [owner/repo]",
 		Short: "Sync al environment: clone ~/.al if needed, then apply providers, packages, and links",
-		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them. Use --force to override any existing lock.",
+		Long:  "If AL_HOME (~/.al) does not exist, clones the given GitHub repository (owner/repo) into it, then applies. Otherwise applies only: ensures providers, installs packages in sync target profiles, applies link.d symlinks. Use --all to sync all AutoSync-enabled profiles, or --profile <name> to sync a specific profile and its extends. Use --pkg-only to sync only packages (skip links). Use --link-only to sync only links (skip packages). Use --prv <name> to sync only packages from a specific provider (e.g. brew). Use --private to clone a private repo: installs git, gh, git-credential-manager and runs gh auth login before cloning. Use --plan to preview changes without applying them. Use --force to override any existing lock.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly); err != nil {
+			if err := validateSyncFlags(all, profile, pkgOnly, linkOnly, providerFilter); err != nil {
 				return err
 			}
 			// --plan takes precedence over --dry-run
@@ -110,7 +118,7 @@ func NewSyncCmd() *cobra.Command {
 				}
 			}
 
-			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, force, args, log)
+			err := runSync(isPlanMode, all, profile, private, pkgOnly, linkOnly, force, providerFilter, args, log)
 
 			if log != nil {
 				log.Close()
@@ -127,26 +135,30 @@ func NewSyncCmd() *cobra.Command {
 	cmd.Flags().StringVar(&profile, "prf", "", "Short form of --profile")
 	cmd.Flags().BoolVar(&pkgOnly, "pkg-only", false, "Sync only packages (skip links)")
 	cmd.Flags().BoolVar(&linkOnly, "link-only", false, "Sync only links (skip packages)")
+	cmd.Flags().StringVar(&providerFilter, "prv", "", "Sync only packages from this provider (e.g. brew, mas)")
 	cmd.Flags().BoolVar(&private, "private", false, "Clone a private repo: install git, gh, git-credential-manager and run gh auth login before cloning")
 	cmd.Flags().BoolVar(&force, "force", false, "Override any existing lock from a previous sync/upgrade operation")
 
 	return cmd
 }
 
-func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool) error {
+func validateSyncFlags(all bool, profile string, pkgOnly bool, linkOnly bool, providerFilter string) error {
 	if all && profile != "" {
 		return fmt.Errorf("cannot use --all and --profile together")
 	}
 	if pkgOnly && linkOnly {
 		return fmt.Errorf("cannot use --pkg-only and --link-only together")
 	}
+	if providerFilter != "" && !validProviders[providerFilter] {
+		return fmt.Errorf("unknown provider %q: must be one of brew, mas, manual", providerFilter)
+	}
 	return nil
 }
 
-func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, force bool, args []string, log *logger.Logger) error {
+func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool, linkOnly bool, force bool, providerFilter string, args []string, log *logger.Logger) error {
 	if log != nil {
-		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v, force=%v)\n",
-			dryRun, all, profileName, pkgOnly, linkOnly, force))
+		log.WriteString(fmt.Sprintf("Sync started (dryRun=%v, all=%v, profile=%s, pkgOnly=%v, linkOnly=%v, force=%v, prv=%s)\n",
+			dryRun, all, profileName, pkgOnly, linkOnly, force, providerFilter))
 	}
 
 	// Skip lock in plan mode
@@ -278,6 +290,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				if !syncTargetSet[pkg.Profile] {
 					continue
 				}
+				if providerFilter != "" && pkg.Provider != providerFilter {
+					continue
+				}
 				if pkg.Provider == "manual" {
 					manualPackages = append(manualPackages, pkg)
 					continue
@@ -391,6 +406,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			var providersNeeded []string
 			for _, pkg := range packagesCfg.Packages {
 				if syncTargetSet[pkg.Profile] && pkg.Provider != "manual" {
+					if providerFilter != "" && pkg.Provider != providerFilter {
+						continue
+					}
 					providersNeeded = append(providersNeeded, pkg.Provider)
 				}
 			}
@@ -457,6 +475,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		var manualPackages []config.PackageConfig
 		for _, pkg := range packagesCfg.Packages {
 			if syncTargetSet[pkg.Profile] {
+				if providerFilter != "" && pkg.Provider != providerFilter {
+					continue
+				}
 				if pkg.Provider != "manual" {
 					providersNeeded = append(providersNeeded, pkg.Provider)
 				} else {
@@ -490,6 +511,9 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		}
 		for _, pkg := range packagesCfg.Packages {
 			if !syncTargetSet[pkg.Profile] {
+				continue
+			}
+			if providerFilter != "" && pkg.Provider != providerFilter {
 				continue
 			}
 			p := getProvider(pkg.Provider)

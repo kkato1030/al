@@ -5,7 +5,7 @@
 - **First time (no `~/.al`)**: `al sync owner/repo` clones the repo into `~/.al`, then applies providers, packages, and link.d symlinks. If `~/.al/bootstrap/script.sh` exists, it is run at the end.
 - **Existing `~/.al`**: `al sync [owner/repo]` only applies (no clone).
 - **Scope**: `--all` for all AutoSync profiles; `--profile <name>` for one profile and its extends.
-- **Limit**: `--pkg-only` or `--link-only` to apply only packages or only links.
+- **Limit**: `--pkg-only` or `--link-only` to apply only packages or only links. `--prv <name>` to sync only packages from a specific provider (e.g. `--prv brew` for brew only).
 - **Dry-run**: `al sync --plan` shows what would change (and upgradeable packages) without applying. Use `AL_DEBUG=1` for debug logs.
 - **JSON**: `al sync --plan --json` for machine-readable plan output.
 

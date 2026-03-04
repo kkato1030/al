@@ -525,7 +525,8 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 				continue
 			}
 			if err := p.InstallPackage(pkg.ID); err != nil {
-				return fmt.Errorf("install package %s: %w", pkg.Name, err)
+				output.Warning("Failed to install package %s: %v", pkg.Name, err)
+				continue
 			}
 		}
 		// Display warning for manual packages

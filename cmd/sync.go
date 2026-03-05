@@ -100,20 +100,24 @@ func NewSyncCmd() *cobra.Command {
 			// --plan takes precedence over --dry-run
 			isPlanMode := plan || dryRun
 
-			// Create logger for sync operation (skip in plan mode)
+			// Create logger for sync operation (skip in plan mode).
+			// Only create the log file if configDir already exists to avoid
+			// creating the directory before the clone existence check.
 			var log *logger.Logger
 			if !isPlanMode {
 				configDir, err := config.GetConfigDir()
 				if err == nil {
-					logsDir := logger.GetLogsDir(configDir)
-					cmdStr := "al sync"
-					if len(args) > 0 {
-						cmdStr += " " + strings.Join(args, " ")
-					}
-					log, err = logger.New(logsDir, cmdStr)
-					if err != nil {
-						// Log creation failed, but don't fail the sync
-						output.Warning("Failed to create log file: %v", err)
+					if info, statErr := os.Stat(configDir); statErr == nil && info.IsDir() {
+						logsDir := logger.GetLogsDir(configDir)
+						cmdStr := "al sync"
+						if len(args) > 0 {
+							cmdStr += " " + strings.Join(args, " ")
+						}
+						log, err = logger.New(logsDir, cmdStr)
+						if err != nil {
+							// Log creation failed, but don't fail the sync
+							output.Warning("Failed to create log file: %v", err)
+						}
 					}
 				}
 			}
@@ -161,30 +165,15 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			dryRun, all, profileName, pkgOnly, linkOnly, force, providerFilter))
 	}
 
-	// Skip lock in plan mode
-	if !dryRun {
-		// Acquire lock
-		lockInstance, err := lock.New()
-		if err != nil {
-			return fmt.Errorf("failed to create lock: %w", err)
-		}
-
-		if err := lockInstance.Acquire(force); err != nil {
-			return err
-		}
-		defer lockInstance.Release()
-
-		if log != nil {
-			log.WriteString("Lock acquired\n")
-		}
-	}
-
 	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %w", err)
 	}
 
-	// AL_HOME does not exist → clone first
+	// AL_HOME does not exist → clone first.
+	// No lock is needed for the clone itself; it is acquired below for the
+	// subsequent package/link sync (which applies to both fresh clones and
+	// existing installs).
 	if !pathExists(configDir) {
 		var ownerRepo string
 		if len(args) >= 1 && strings.TrimSpace(args[0]) != "" {
@@ -227,6 +216,24 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		}
 		if log != nil {
 			log.WriteString("Clone completed successfully\n")
+		}
+	}
+
+	// Skip lock in plan mode. For both fresh clones and existing installs the
+	// lock is acquired here to protect the package/link sync phase.
+	if !dryRun {
+		lockInstance, err := lock.New()
+		if err != nil {
+			return fmt.Errorf("failed to create lock: %w", err)
+		}
+
+		if err := lockInstance.Acquire(force); err != nil {
+			return err
+		}
+		defer lockInstance.Release()
+
+		if log != nil {
+			log.WriteString("Lock acquired\n")
 		}
 	}
 

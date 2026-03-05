@@ -295,7 +295,15 @@ func checkLinks() []CheckResult {
 
 	brokenCount := 0
 	for _, link := range links {
-		userPath := link.Manifest.UserPath
+		userPath, err := config.ExpandUserPath(link.Manifest.UserPath)
+		if err != nil {
+			results = append(results, CheckResult{
+				Status:  StatusWarn,
+				Message: fmt.Sprintf("link %s: cannot resolve path %s: %v", link.Name, link.Manifest.UserPath, err),
+			})
+			brokenCount++
+			continue
+		}
 		fi, err := os.Lstat(userPath)
 		if err != nil {
 			if os.IsNotExist(err) {

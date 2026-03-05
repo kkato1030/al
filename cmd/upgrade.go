@@ -24,15 +24,19 @@ func NewUpgradeCmd() *cobra.Command {
 		Short: "Upgrade all providers and packages",
 		Long:  "Upgrade all providers and packages. This is equivalent to running 'al provider upgrade' followed by 'al package upgrade'. Use --force to override any existing lock.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Create logger for upgrade operation
+			// Create logger for upgrade operation.
+			// Only create the log file if configDir already exists to avoid
+			// creating the directory unexpectedly.
 			var log *logger.Logger
 			configDir, err := config.GetConfigDir()
 			if err == nil {
-				logsDir := logger.GetLogsDir(configDir)
-				log, err = logger.New(logsDir, "al upgrade")
-				if err != nil {
-					// Log creation failed, but don't fail the upgrade
-					output.Warning("Failed to create log file: %v", err)
+				if info, statErr := os.Stat(configDir); statErr == nil && info.IsDir() {
+					logsDir := logger.GetLogsDir(configDir)
+					log, err = logger.New(logsDir, "al upgrade")
+					if err != nil {
+						// Log creation failed, but don't fail the upgrade
+						output.Warning("Failed to create log file: %v", err)
+					}
 				}
 			}
 

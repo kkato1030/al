@@ -450,15 +450,17 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 			}
 		}
 
-		// Check for bootstrap script
+		// Check for bootstrap script (skipped when --link-only)
 		hasBootstrap := false
-		exists, err := config.BootstrapScriptExists()
-		if err != nil {
-			if !IsJSONOutput() {
-				output.Warning("Failed to check for bootstrap script: %v", err)
+		if !linkOnly {
+			exists, err := config.BootstrapScriptExists()
+			if err != nil {
+				if !IsJSONOutput() {
+					output.Warning("Failed to check for bootstrap script: %v", err)
+				}
+			} else {
+				hasBootstrap = exists
 			}
-		} else {
-			hasBootstrap = exists
 		}
 
 		// Output the plan
@@ -549,15 +551,28 @@ func runSync(dryRun, all bool, profileName string, usePrivate bool, pkgOnly bool
 		if err != nil {
 			return fmt.Errorf("list links: %w", err)
 		}
+		if len(entries) > 0 {
+			loggedPrintf(log, "Setting up links...\n")
+		}
 		for _, entry := range entries {
 			entryDir := filepath.Join(linkDir, entry.Name)
 			if err := config.EnsureLinkSymlink(&entry, entryDir); err != nil {
 				return fmt.Errorf("link %s: %w", entry.Name, err)
 			}
+			loggedPrintf(log, "  + link %s → %s\n", entry.Name, entry.Manifest.UserPath)
 		}
 	}
 
-	// Run bootstrap script if present
+	// Run bootstrap script if present (skip when --link-only)
+	if linkOnly {
+		fmt.Println() // Add newline before success message
+		output.Success("Sync complete!")
+		if log != nil {
+			log.WriteString("\nSync completed successfully\n")
+		}
+		return nil
+	}
+
 	exists, err := config.BootstrapScriptExists()
 	if err != nil {
 		return fmt.Errorf("bootstrap check: %w", err)
@@ -715,7 +730,9 @@ func outputSyncPlan(
 	}
 
 	// Human-readable output
-	fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+	if len(syncTargetNames) > 0 {
+		fmt.Printf("\nPlan: Sync target profiles: %v\n", syncTargetNames)
+	}
 	fmt.Println("\nPlan:")
 
 	// Show providers to install

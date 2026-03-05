@@ -418,6 +418,81 @@ func TestE2E_LinkAddList(t *testing.T) {
 	}
 }
 
+func TestE2E_SyncLinkOnly(t *testing.T) {
+	dir := t.TempDir()
+	linkSrc := filepath.Join(dir, "linksrc.txt")
+	if err := os.WriteFile(linkSrc, []byte("hello"), 0644); err != nil {
+		t.Fatalf("create link source file: %v", err)
+	}
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	// al link add moves the file to link.d/<name>/content and creates a symlink at linkSrc
+	_, _, code = runAl(t, dir, "link", "add", "synclink", "--path", linkSrc)
+	if code != 0 {
+		t.Fatalf("al link add synclink exited with code %d", code)
+	}
+	// Remove the symlink at linkSrc to simulate restoring on a new machine
+	// (link.d/synclink/content still holds the file; only the symlink is gone)
+	if err := os.Remove(linkSrc); err != nil {
+		t.Fatalf("remove symlink at linkSrc: %v", err)
+	}
+	// Run sync --link-only: should recreate the symlink at linkSrc
+	stdout, _, code := runAl(t, dir, "sync", "--link-only")
+	if code != 0 {
+		t.Fatalf("al sync --link-only exited with code %d; stdout: %s", code, stdout)
+	}
+	// Verify symlink was recreated at linkSrc
+	fi, err := os.Lstat(linkSrc)
+	if err != nil {
+		t.Fatalf("expected symlink at %s after sync --link-only, got error: %v", linkSrc, err)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("expected %s to be a symlink after sync --link-only, got mode %v", linkSrc, fi.Mode())
+	}
+	// Verify output includes the link name
+	if !strings.Contains(stdout, "synclink") {
+		t.Errorf("sync --link-only output should mention link name 'synclink'; got: %s", stdout)
+	}
+}
+
+func TestE2E_SyncLinkOnlyPlan(t *testing.T) {
+	dir := t.TempDir()
+	linkSrc := filepath.Join(dir, "planlink.txt")
+	if err := os.WriteFile(linkSrc, []byte("data"), 0644); err != nil {
+		t.Fatalf("create link source file: %v", err)
+	}
+	_, _, code := runAl(t, dir, "init")
+	if code != 0 {
+		t.Fatalf("al init exited with code %d", code)
+	}
+	// al link add moves the file to link.d/<name>/content and creates a symlink at linkSrc
+	_, _, code = runAl(t, dir, "link", "add", "planlink", "--path", linkSrc)
+	if code != 0 {
+		t.Fatalf("al link add planlink exited with code %d", code)
+	}
+	stdout, _, code := runAl(t, dir, "sync", "--link-only", "--plan")
+	if code != 0 {
+		t.Fatalf("al sync --link-only --plan exited with code %d; stdout: %s", code, stdout)
+	}
+	// Plan output should show the "Links" section with the link's user path
+	if !strings.Contains(stdout, "Links") {
+		t.Errorf("sync --link-only --plan should show 'Links' section; got: %s", stdout)
+	}
+	if !strings.Contains(stdout, linkSrc) {
+		t.Errorf("sync --link-only --plan should show link path %s; got: %s", linkSrc, stdout)
+	}
+	// Plan output should NOT mention bootstrap (--link-only skips it)
+	if strings.Contains(strings.ToLower(stdout), "bootstrap") {
+		t.Errorf("sync --link-only --plan should not mention bootstrap; got: %s", stdout)
+	}
+	// Plan output should NOT show "Sync target profiles" (no package sync with --link-only)
+	if strings.Contains(stdout, "Sync target profiles") {
+		t.Errorf("sync --link-only --plan should not show 'Sync target profiles'; got: %s", stdout)
+	}
+}
+
 // --- Section 4: darwin only (diff) ---
 
 func TestE2E_Diff(t *testing.T) {

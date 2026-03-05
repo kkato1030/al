@@ -23,7 +23,7 @@ const (
 
 // LinkManifest represents the manifest for a link.d entry.
 type LinkManifest struct {
-	UserPath        string   `json:"user_path"`                  // absolute path (symlink location)
+	UserPath        string   `json:"user_path"`                  // portable path (may use ~ for home dir; symlink location)
 	Type            LinkType `json:"type"`                       // file or dir
 	PackageID       string   `json:"package_id,omitempty"`       // optional package association
 	PackageProvider string   `json:"package_provider,omitempty"` // optional package association
@@ -62,8 +62,9 @@ func sanitizeLinkName(name string) (string, error) {
 	return name, nil
 }
 
-// resolveUserPath returns the absolute path for the user-facing path.
-func resolveUserPath(path string) (string, error) {
+// ExpandUserPath expands a leading ~ or ~/ to the current user's home directory.
+// Absolute paths are returned as-is (cleaned). Relative paths are resolved against cwd.
+func ExpandUserPath(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		return filepath.Clean(path), nil
 	}
@@ -81,9 +82,26 @@ func resolveUserPath(path string) (string, error) {
 	return filepath.Abs(filepath.Join(cwd, path))
 }
 
+// portableUserPath converts an absolute path to a portable form by replacing
+// the current user's home directory prefix with "~". Paths not under $HOME are
+// returned unchanged. This allows manifests to be shared across machines.
+func portableUserPath(absPath string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return absPath
+	}
+	if absPath == home {
+		return "~"
+	}
+	if strings.HasPrefix(absPath, home+string(filepath.Separator)) {
+		return filepath.Join("~", absPath[len(home)+1:])
+	}
+	return absPath
+}
+
 // DetectLinkType determines file or dir from path. If path does not exist, trailing / means dir, else file.
 func DetectLinkType(userPath string) (LinkType, error) {
-	abs, err := resolveUserPath(userPath)
+	abs, err := ExpandUserPath(userPath)
 	if err != nil {
 		return "", err
 	}
@@ -111,7 +129,7 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 	if err != nil {
 		return nil, err
 	}
-	absUserPath, err := resolveUserPath(userPath)
+	absUserPath, err := ExpandUserPath(userPath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +160,7 @@ func AddLink(name, userPath string, linkType LinkType, packageID, packageProvide
 		return nil, err
 	}
 	manifest := &LinkManifest{
-		UserPath:        absUserPath,
+		UserPath:        portableUserPath(absUserPath),
 		Type:            linkType,
 		PackageID:       packageID,
 		PackageProvider: packageProvider,
@@ -339,7 +357,10 @@ func GetLinkContentPath(entryDir string) string {
 // RemoveLink removes the symlink and optionally copies content back (copy-back). If purge is true, deletes link.d/<name> without copy-back.
 func RemoveLink(entry *LinkEntry, entryDir string, purge bool) error {
 	contentPath := GetLinkContentPath(entryDir)
-	userPath := entry.Manifest.UserPath
+	userPath, err := ExpandUserPath(entry.Manifest.UserPath)
+	if err != nil {
+		return fmt.Errorf("resolving user path: %w", err)
+	}
 	// Remove symlink at user path
 	if _, err := os.Lstat(userPath); err == nil {
 		if err := os.Remove(userPath); err != nil {
@@ -383,8 +404,10 @@ func ForceRemoveLinkEntry(name string) error {
 	}
 	entryDir := filepath.Join(linkDir, safeName)
 	if m, err := loadLinkManifest(entryDir); err == nil {
-		if _, err := os.Lstat(m.UserPath); err == nil {
-			_ = os.Remove(m.UserPath)
+		if userPath, err := ExpandUserPath(m.UserPath); err == nil {
+			if _, err := os.Lstat(userPath); err == nil {
+				_ = os.Remove(userPath)
+			}
 		}
 	}
 	return os.RemoveAll(entryDir)
@@ -415,7 +438,10 @@ func EnsureLinkSymlink(entry *LinkEntry, entryDir string) error {
 	if _, err := os.Stat(contentPath); err != nil {
 		return fmt.Errorf("link content does not exist at %s: %w", contentPath, err)
 	}
-	userPath := entry.Manifest.UserPath
+	userPath, err := ExpandUserPath(entry.Manifest.UserPath)
+	if err != nil {
+		return fmt.Errorf("resolving user path: %w", err)
+	}
 
 	// Resolve contentPath to absolute so the symlink target is stable
 	absContent, err := filepath.Abs(contentPath)

@@ -165,11 +165,11 @@ func runInitGuided() error {
 	enableTrial := trialModel.GetSelected() == "yes"
 
 	// Prompt 4: Review period (if trial enabled)
-	reviewDays := 30 // default
+	reviewDays := 1 // default
 	if enableTrial {
 		reviewModel := ui.NewSelectModel(
 			"Review period for trial packages?",
-			[]string{"7 days", "14 days", "30 days", "60 days"},
+			[]string{"1 day", "7 days", "14 days", "30 days", "60 days"},
 		)
 		p = tea.NewProgram(reviewModel)
 		if _, err := p.Run(); err != nil {
@@ -177,6 +177,8 @@ func runInitGuided() error {
 		}
 		reviewSelection := reviewModel.GetSelected()
 		switch reviewSelection {
+		case "1 day":
+			reviewDays = 1
 		case "7 days":
 			reviewDays = 7
 		case "14 days":

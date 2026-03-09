@@ -436,3 +436,64 @@ func TestSortProfilesForDisplay(t *testing.T) {
 		})
 	}
 }
+
+func TestSetProfileReviewDays(t *testing.T) {
+	dir := t.TempDir()
+	restore := setEnv("AL_HOME", dir)
+	defer restore()
+
+	if err := EnsureConfigDir(); err != nil {
+		t.Fatal(err)
+	}
+
+	days30 := 30
+	if err := SaveProfilesConfig(&ProfilesConfig{
+		Profiles: []ProfileConfig{
+			{Name: "trial", Stage: "trial", ReviewDays: &days30},
+			{Name: "stable", Stage: "stable"},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Set review_days on a profile that already has one
+	if err := SetProfileReviewDays("trial", 1); err != nil {
+		t.Fatalf("SetProfileReviewDays: %v", err)
+	}
+	days, hasReview, err := GetReviewDays("trial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasReview || days != 1 {
+		t.Errorf("Expected review_days=1 after set, got hasReview=%v days=%d", hasReview, days)
+	}
+
+	// Set review_days on a profile that had none
+	if err := SetProfileReviewDays("stable", 7); err != nil {
+		t.Fatalf("SetProfileReviewDays stable: %v", err)
+	}
+	days, hasReview, err = GetReviewDays("stable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasReview || days != 7 {
+		t.Errorf("Expected review_days=7 after set on stable, got hasReview=%v days=%d", hasReview, days)
+	}
+
+	// Clear review_days by setting to 0
+	if err := SetProfileReviewDays("trial", 0); err != nil {
+		t.Fatalf("SetProfileReviewDays clear: %v", err)
+	}
+	_, hasReview, err = GetReviewDays("trial")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasReview {
+		t.Error("Expected review_days to be cleared after setting to 0")
+	}
+
+	// Error on non-existent profile
+	if err := SetProfileReviewDays("nonexistent", 5); err == nil {
+		t.Error("Expected error for non-existent profile")
+	}
+}

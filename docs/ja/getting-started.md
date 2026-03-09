@@ -48,7 +48,7 @@ al init --guided
 1. **プロファイル設定**: Single profile (core only) / Multiple profiles (core + additional)
 2. **追加プロファイル名**: Multiple profiles を選んだ場合、カンマ区切りで入力（例: work, personal）
 3. **trial ワークフローの有効化**: 実験的パッケージの試用期間を設けるか
-4. **レビュー期間**: trial を有効にした場合、期限日数（7/14/30/60日）を選択
+4. **レビュー期間**: trial を有効にした場合、期限日数（1/7/14/30/60日）を選択
 
 ### パッケージの追加
 

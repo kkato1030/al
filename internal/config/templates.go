@@ -45,7 +45,7 @@ func GetDefaultTemplates() []ProfileTemplate {
 					Stage:      "trial",
 					Extends:    []string{"<profile_name>"},
 					PromoteTo:  "<profile_name>",
-					ReviewDays: intPtr(30),
+					ReviewDays: intPtr(1),
 				},
 			},
 		},

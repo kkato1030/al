@@ -32,7 +32,7 @@
 
 | サブコマンド | 説明 |
 |--------------|------|
-| `al profile add [名前]` | profile を追加（`-t` でテンプレートから作成） |
+| `al profile add [名前]` | profile を追加（`-t` でテンプレートから作成）。`--review-days <n>` で既存 profile のレビュー期間（日数）を設定・更新 |
 | `al profile list` | 一覧 |
 | `al profile show [名前]` | 詳細 |
 | `al profile remove <名前>` | 削除 |

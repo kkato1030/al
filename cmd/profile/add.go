@@ -20,6 +20,7 @@ func NewProfileAddCmd() *cobra.Command {
 	var promoteTo string
 	var packageDuplication string
 	var templateName string
+	var reviewDays int
 
 	cmd := &cobra.Command{
 		Use:   "add [profile-name]",
@@ -30,6 +31,22 @@ func NewProfileAddCmd() *cobra.Command {
 			var name string
 			if len(args) > 0 {
 				name = args[0]
+			}
+
+			// --review-days on an existing profile: patch only that field
+			if cmd.Flags().Changed("review-days") && templateName == "" {
+				if name == "" {
+					return fmt.Errorf("profile name is required when using --review-days")
+				}
+				if err := config.SetProfileReviewDays(name, reviewDays); err != nil {
+					return fmt.Errorf("error setting review_days: %w", err)
+				}
+				if reviewDays <= 0 {
+					output.Success("Cleared review_days for profile %s", name)
+				} else {
+					output.Success("Set review_days to %d for profile %s", reviewDays, name)
+				}
+				return nil
 			}
 
 			// If template is specified, use template mode
@@ -51,6 +68,7 @@ func NewProfileAddCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&promoteTo, "promote-to", "p", "", "Target location for promotion")
 	cmd.Flags().StringVar(&packageDuplication, "package-duplication", "", "Package duplication policy: forbid, allow, or warn (default: warn)")
 	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template name to use for creating profiles")
+	cmd.Flags().IntVar(&reviewDays, "review-days", 0, "Number of days between reviews (0 = disable review)")
 
 	return cmd
 }

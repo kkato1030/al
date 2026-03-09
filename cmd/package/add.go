@@ -350,6 +350,8 @@ func runPackageAdd(packageName, providerName, profile, version, description, pac
 	if days, hasReview, _ := config.GetReviewDays(profile); hasReview && days > 0 {
 		reviewBy := time.Now().AddDate(0, 0, days)
 		pkg.ReviewBy = &reviewBy
+	} else if !hasReview {
+		output.Info("ヒント: プロフィール '%s' にレビュー期間が設定されていません。以下のコマンドを実行してレビュー期間を明示的に指定してね:\n  al profile add --review-days <days> %s", profile, profile)
 	}
 
 	// Add or update package in config

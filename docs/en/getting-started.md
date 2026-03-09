@@ -48,7 +48,7 @@ You’ll be asked:
 1. **Profile setup**: Single profile (core only) or multiple profiles (core + extra)
 2. **Extra profile names**: If multiple, comma-separated (e.g. work, personal)
 3. **Trial workflow**: Whether to use a trial period for new packages
-4. **Review period**: If trial is enabled, review deadline in days (7/14/30/60)
+4. **Review period**: If trial is enabled, review deadline in days (1/7/14/30/60)
 
 ## Add packages
 

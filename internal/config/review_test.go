@@ -182,8 +182,8 @@ func TestGetReviewDays_TrialProfileFromTemplate(t *testing.T) {
 	if !hasReview {
 		t.Error("Trial profile from stable-trial template should have review_days")
 	}
-	if days != 30 {
-		t.Errorf("Expected review_days to be 30, got %d", days)
+	if days != 1 {
+		t.Errorf("Expected review_days to be 1, got %d", days)
 	}
 
 	// Check that myapp (stable) does NOT have review_days

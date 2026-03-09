@@ -271,6 +271,25 @@ func GetReviewDays(profileName string) (days int, hasReview bool, err error) {
 	return *p.ReviewDays, true, nil
 }
 
+// SetProfileReviewDays sets (or clears) the review_days field for an existing profile.
+// Pass days <= 0 to clear (disable review) for the profile.
+func SetProfileReviewDays(profileName string, days int) error {
+	cfg, err := LoadProfilesConfig()
+	if err != nil {
+		return err
+	}
+	p := profileByName(cfg, profileName)
+	if p == nil {
+		return fmt.Errorf("profile '%s' not found", profileName)
+	}
+	if days <= 0 {
+		p.ReviewDays = nil
+	} else {
+		p.ReviewDays = &days
+	}
+	return SaveProfilesConfig(cfg)
+}
+
 // GetSyncTargetProfileNames returns profile names to sync based on mode.
 // Mode: "default" = default_profile + extends, filtered by AutoSync; "all" = all profiles with AutoSync; "profile" = given name + extends (no filter).
 func GetSyncTargetProfileNames(mode string, profileName string) ([]string, error) {

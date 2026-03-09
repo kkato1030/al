@@ -40,8 +40,8 @@ func TestStableTrialTemplateHasReviewDays(t *testing.T) {
 	// Verify trial profile has ReviewDays set
 	if trialProfile.ReviewDays == nil {
 		t.Error("trial profile is missing ReviewDays - this will cause review functionality to not work")
-	} else if *trialProfile.ReviewDays != 30 {
-		t.Errorf("trial profile ReviewDays expected to be 30, got %d", *trialProfile.ReviewDays)
+	} else if *trialProfile.ReviewDays != 1 {
+		t.Errorf("trial profile ReviewDays expected to be 1, got %d", *trialProfile.ReviewDays)
 	} else {
 		t.Logf("✓ trial profile has ReviewDays: %d", *trialProfile.ReviewDays)
 	}

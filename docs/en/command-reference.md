@@ -32,7 +32,7 @@
 
 | Subcommand | Description |
 |------------|-------------|
-| `al profile add [name]` | Add profile. Use `-t` to create from a template. |
+| `al profile add [name]` | Add profile. Use `-t` to create from a template. Use `--review-days <n>` to set (or update) the review period in days for an existing profile. |
 | `al profile list` | List profiles. |
 | `al profile show [name]` | Show details. |
 | `al profile remove <name>` | Remove profile. |

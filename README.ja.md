@@ -38,6 +38,7 @@ eval "$(al activate zsh)"   # または bash
 ```bash
 al sync owner/repo          # リポジトリの設定を適用
 al backup --init           # リポジトリ作成と push（初回）
+al backup --pull           # リモートバックアップの変更を ~/.al に取り込む
 ```
 
 ---
@@ -79,7 +80,7 @@ al backup --init           # リポジトリ作成と push（初回）
 | `al doctor` | 環境の診断。 |
 | `al sync [owner/repo]` | 設定の適用（必要なら clone）。`--plan` でプレビュー。`--prv brew` で brew のみを同期。 |
 | `al diff` | システムとプロファイルの比較。 |
-| `al backup` | `~/.al` を commit して GitHub に push。 |
+| `al backup` | `~/.al` を commit して GitHub に push。`--pull` でリモートの変更を `~/.al` に取り込む。 |
 | `al upgrade` | provider とパッケージのアップグレード。 |
 | `al config` / `al profile` / `al provider` / `al package` / `al link` / `al shell` / `al bootstrap` / `al logs` | 各サブコマンド。 |
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kkato1030/al/internal/config"
+	"github.com/kkato1030/al/internal/output"
 	"github.com/kkato1030/al/internal/source"
 	"github.com/spf13/cobra"
 )
@@ -21,13 +22,17 @@ func NewBackupCmd() *cobra.Command {
 	var private bool
 	var repo string
 	var dryRun bool
+	var pull bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Backup al settings to GitHub",
-		Long:  "Commit and push ~/.al (AL_HOME) to a GitHub repository. Default repo is owner/dotal (owner from gh). Use --init to create the repository on GitHub first. Use --dry-run to preview what would be backed up without actually committing or pushing.",
+		Long:  "Commit and push ~/.al (AL_HOME) to a GitHub repository. Default repo is owner/dotal (owner from gh). Use --init to create the repository on GitHub first. Use --dry-run to preview what would be backed up without actually committing or pushing. Use --pull to fetch and merge changes from the remote backup into ~/.al.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if pull {
+				return runBackupPull(repo, dryRun)
+			}
 			return runBackup(init, private, repo, dryRun)
 		},
 	}
@@ -36,6 +41,7 @@ func NewBackupCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&private, "private", false, "With --init, create the repository as private")
 	cmd.Flags().StringVar(&repo, "repo", "", "Override backup repository (owner/repo, e.g. kkato1030/dotal)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be backed up without committing or pushing")
+	cmd.Flags().BoolVar(&pull, "pull", false, "Fetch and merge changes from the remote backup into ~/.al")
 
 	return cmd
 }
@@ -328,4 +334,101 @@ func checkWouldHaveChanges(configDir string) (bool, error) {
 	}
 
 	return len(bytes.TrimSpace(out)) > 0, nil
+}
+
+// runBackupPull fetches and merges changes from the remote backup repository into ~/.al.
+// If merge conflicts occur, they are reported and the user is guided to resolve them manually.
+func runBackupPull(repoOverride string, dryRun bool) error {
+	configDir, err := config.GetConfigDir()
+	if err != nil {
+		return fmt.Errorf("failed to get config directory: %w", err)
+	}
+
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		return fmt.Errorf("config directory does not exist: %s (run 'al init' first)", configDir)
+	}
+
+	// Ensure the config dir is a git repository
+	gitDir := filepath.Join(configDir, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return fmt.Errorf("config directory is not a git repository: %s (run 'al backup --init' first)", configDir)
+	}
+
+	owner, repo, err := resolveBackupRepo(repoOverride)
+	if err != nil {
+		return err
+	}
+
+	remoteURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+
+	if dryRun {
+		fmt.Println("[dry-run] Backup pull preview:")
+		fmt.Printf("  Source repository: https://github.com/%s/%s\n", owner, repo)
+		fmt.Println("  Would fetch and merge changes from remote into", configDir)
+
+		// Check for local uncommitted changes
+		hasLocal, err := checkWouldHaveChanges(configDir)
+		if err == nil && hasLocal {
+			output.Warning("There are local uncommitted changes -- a pull may cause conflicts")
+		}
+		return nil
+	}
+
+	// Ensure the remote is set correctly
+	if err := ensureGitInConfigDir(configDir, remoteURL); err != nil {
+		return err
+	}
+
+	// Run git pull (fetch + merge)
+	pullOut, pullErr := runGitCombinedOutput(configDir, "pull", "origin", "main")
+	pullOutput := strings.TrimSpace(string(pullOut))
+
+	if pullErr != nil {
+		// Check if the error is due to merge conflicts
+		conflictFiles, conflictErr := getConflictedFiles(configDir)
+		if conflictErr == nil && len(conflictFiles) > 0 {
+			output.Warning("Merge conflicts detected. Resolve the following files and then run 'git add' and 'git commit':")
+			for _, f := range conflictFiles {
+				fmt.Fprintf(os.Stderr, "  %s\n", f)
+			}
+			fmt.Fprintf(os.Stderr, "To abort the merge, run: cd %s && git merge --abort\n", configDir)
+			return fmt.Errorf("pull failed due to merge conflicts in %s", configDir)
+		}
+		// Some other pull error
+		if pullOutput != "" {
+			return fmt.Errorf("git pull failed: %w\n%s", pullErr, pullOutput)
+		}
+		return fmt.Errorf("git pull failed: %w", pullErr)
+	}
+
+	if pullOutput == "" || pullOutput == "Already up to date." {
+		fmt.Printf("Already up to date with https://github.com/%s/%s\n", owner, repo)
+	} else {
+		fmt.Printf("Pulled from https://github.com/%s/%s\n", owner, repo)
+		fmt.Println(pullOutput)
+	}
+	return nil
+}
+
+// runGitCombinedOutput runs a git command and returns combined stdout+stderr output.
+func runGitCombinedOutput(dir string, args ...string) ([]byte, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	return cmd.CombinedOutput()
+}
+
+// getConflictedFiles returns a list of files with merge conflicts.
+func getConflictedFiles(configDir string) ([]string, error) {
+	out, err := runGitOutput(configDir, "diff", "--name-only", "--diff-filter=U")
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
 }

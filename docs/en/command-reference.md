@@ -10,7 +10,7 @@
 | `al doctor` | Check for issues (providers, config, broken symlinks, shell.d cycles, expired packages, invalid profile refs). No system changes. Shows OK / WARN / ERROR. |
 | `al sync [owner/repo]` | Clone if `~/.al` missing, then apply providers/packages/links; run bootstrap if present. `--plan` to preview without applying (checks upgrades too). `AL_DEBUG=1` for debug logs. `--all` or `--profile <name>`. `--prv <name>` to sync only packages from a specific provider (e.g. `--prv brew`). |
 | `al diff` | Compare current system state to profiles. Shows additions (+), removals (-), upgrades (~). Exit code 1 if there is drift. |
-| `al backup` | Commit `~/.al` and push to GitHub. `--init` to create repo, `--dry-run` to preview. |
+| `al backup` | Commit `~/.al` and push to GitHub. `--init` to create repo, `--dry-run` to preview. `--pull` to fetch and merge changes from the remote backup into `~/.al` (conflicts are reported with resolution guidance). |
 | `al update` | Update al to the latest release. |
 | `al upgrade` | Upgrade all providers and packages. Use `-y` to skip confirmations. |
 | `al logs` | View logs. `--list` for recent log files; pass a filename to open one. Logs live in `~/.al/logs/` as YYYYMMDD-HHMMSS.log. |

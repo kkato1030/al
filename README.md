@@ -38,6 +38,7 @@ eval "$(al activate zsh)"   # or bash
 ```bash
 al sync owner/repo          # apply config from a repo
 al backup --init            # create repo and push (first time)
+al backup --pull            # pull changes from backup into ~/.al
 ```
 
 ---
@@ -79,7 +80,7 @@ More: [Concepts (en)](docs/en/concepts.md) \| [概念（ja）](docs/ja/concepts.
 | `al doctor` | Check environment. |
 | `al sync [owner/repo]` | Apply config (clone if needed). `--plan` to preview. `--prv brew` to sync only brew packages. |
 | `al diff` | Compare system vs profiles. |
-| `al backup` | Commit and push `~/.al` to GitHub. |
+| `al backup` | Commit and push `~/.al` to GitHub. `--pull` to fetch changes from remote into `~/.al`. |
 | `al upgrade` | Upgrade providers and packages. |
 | `al config` / `al profile` / `al provider` / `al package` / `al link` / `al shell` / `al bootstrap` / `al logs` | Subcommands. |
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 func NewReviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "review",
-		Short: "Resolve overdue packages (remove / promote / postpone)",
-		Long:  "List packages past their review deadline and choose remove (uninstall), promote (move to stable), or postpone (extend review by same period). Postpone shows a confirmation prompt.",
+		Short: "Resolve overdue packages (remove / promote / move / postpone)",
+		Long:  "List packages past their review deadline and choose remove (uninstall), promote (move to stable), move (move to another profile), or postpone (extend review by same period). Postpone shows a confirmation prompt.",
 		Args:  cobra.NoArgs,
 		RunE:  runReview,
 	}
@@ -36,14 +37,14 @@ func runReview(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("Review overdue: %d package(s). Decide for each: remove / promote / postpone.\n\n", len(overdue))
+	fmt.Printf("Review overdue: %d package(s). Decide for each: remove / promote / move / postpone.\n\n", len(overdue))
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for _, pkg := range overdue {
 		resolved := false
 		for !resolved {
 			fmt.Printf("Package: %s (profile: %s, provider: %s)\n", pkg.Name, pkg.Profile, pkg.Provider)
-			fmt.Print("  [r]emove  [p]romote  [s]postpone: ")
+			fmt.Print("  [r]emove  [p]romote  [m]ove  [s]postpone: ")
 			if !scanner.Scan() {
 				return scanner.Err()
 			}
@@ -68,6 +69,44 @@ func runReview(cmd *cobra.Command, args []string) error {
 				}
 				if err := packagecmd.RunPackageMoveFromConfig(pkg, prof.PromoteTo); err != nil {
 					return fmt.Errorf("promote %s: %w", pkg.Name, err)
+				}
+				resolved = true
+			case "m", "move":
+				profilesCfg, err := config.LoadProfilesConfig()
+				if err != nil {
+					return fmt.Errorf("load profiles: %w", err)
+				}
+				var available []config.ProfileConfig
+				for _, p := range profilesCfg.Profiles {
+					if p.Name != pkg.Profile {
+						available = append(available, p)
+					}
+				}
+				if len(available) == 0 {
+					fmt.Fprintln(os.Stderr, "  No other profiles available.")
+					continue
+				}
+				fmt.Println("  Select destination profile:")
+				for i, p := range available {
+					line := fmt.Sprintf("    %d. %s", i+1, p.Name)
+					if p.Description != "" {
+						line += fmt.Sprintf(" - %s", p.Description)
+					}
+					fmt.Println(line)
+				}
+				fmt.Print("  Profile number: ")
+				if !scanner.Scan() {
+					return scanner.Err()
+				}
+				input := strings.TrimSpace(scanner.Text())
+				idx, err := strconv.Atoi(input)
+				if err != nil || idx < 1 || idx > len(available) {
+					fmt.Fprintln(os.Stderr, "  Invalid selection, back to choice.")
+					continue
+				}
+				toProfile := available[idx-1].Name
+				if err := packagecmd.RunPackageMoveFromConfig(pkg, toProfile); err != nil {
+					return fmt.Errorf("move %s: %w", pkg.Name, err)
 				}
 				resolved = true
 			default:

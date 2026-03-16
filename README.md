@@ -38,7 +38,7 @@ eval "$(al activate zsh)"   # or bash
 ```bash
 al sync owner/repo          # apply config from a repo
 al backup --init            # create repo and push (first time)
-al backup --pull            # pull changes from backup into ~/.al
+al pull                     # pull changes from backup into ~/.al
 ```
 
 ---
@@ -53,7 +53,7 @@ al backup --pull            # pull changes from backup into ~/.al
 | Profiles | `al profile add/list/show` |
 | Dotfiles | `al link add/list/remove/edit`, link.d |
 | Shell snippets | `al shell show/add/edit/enable/disable`, shell.d |
-| Sync / backup | `al sync [owner/repo]`, `al backup` |
+| Sync / backup | `al sync [owner/repo]`, `al backup`, `al pull` |
 | Import | `al import [Brewfile] --prf <profile>` |
 
 Full list and details: **[Documentation (English)](docs/en/README.md)** \| **[ドキュメント（日本語）](docs/ja/README.md)**
@@ -80,7 +80,8 @@ More: [Concepts (en)](docs/en/concepts.md) \| [概念（ja）](docs/ja/concepts.
 | `al doctor` | Check environment. |
 | `al sync [owner/repo]` | Apply config (clone if needed). `--plan` to preview. `--prv brew` to sync only brew packages. |
 | `al diff` | Compare system vs profiles. |
-| `al backup` | Commit and push `~/.al` to GitHub. `--pull` to fetch changes from remote into `~/.al`. |
+| `al backup` | Commit and push `~/.al` to GitHub. |
+| `al pull` | Fetch and merge changes from the remote backup into `~/.al`. |
 | `al upgrade` | Upgrade providers and packages. |
 | `al config` / `al profile` / `al provider` / `al package` / `al link` / `al shell` / `al bootstrap` / `al logs` | Subcommands. |
 

@@ -8,26 +8,43 @@
 
 ## Quick Start
 
-**インストール**
+**インストール**（どちらのパスも共通）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
 al version
 ```
 
-**初期化**（対話式は `al init --guided`）
+自分に合ったパスを選んでください。
+
+### すでに Homebrew / mas を使っている人 — import で一発移行
+
+すでに `brew`（や `mas`）でパッケージを管理しているなら、ゼロからやり直す必要はありません。`al import` で **今の環境**をそのまま al の管理下に取り込めます。これが最短の移行方法です。
 
 ```bash
-al init
+al init                        # ~/.al をセットアップ
+al profile add core            # 取り込み先の profile を作成
+al import --prf core --dry-run # 登録される内容をプレビュー
+al import --prf core           # 現在インストール済みのパッケージを登録
 ```
 
-**パッケージの追加**
+すでに `Brewfile` がある場合は、それを直接取り込めます:
 
 ```bash
-al add jq
+al import Brewfile --prf core             # 登録のみ
+al import Brewfile --prf core --install   # 未インストール分もインストール
 ```
 
-**シェルの有効化** — `.zshrc` または `.bashrc` に追加:
+`al import`（自動検出）は明示的にインストールしたパッケージ（`brew leaves`）と cask・mas アプリのみを対象にします。詳細は **[Brewfile からの移行](docs/ja/brewfile-migration.md)** を参照。
+
+### ゼロから使い始める人
+
+```bash
+al init            # 対話式は: al init --guided
+al add jq          # パッケージの追加
+```
+
+**シェルの有効化**（どちらも共通） — `.zshrc` または `.bashrc` に追加:
 
 ```bash
 eval "$(al activate zsh)"   # または bash

@@ -8,26 +8,43 @@
 
 ## Quick Start
 
-**Install**
+**Install** (both paths start here)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kkato1030/al/main/install.sh | bash
 al version
 ```
 
-**Initialize** (use `al init --guided` for interactive setup)
+Pick the path that matches you.
+
+### Already using Homebrew / mas? Import in one step
+
+If you already manage packages with `brew` (and maybe `mas`), you don't have to start over — bring your **current environment** under al with `al import`. This is the fastest way to migrate.
 
 ```bash
-al init
+al init                        # set up ~/.al
+al profile add core            # create a profile to import into
+al import --prf core --dry-run # preview what would be registered
+al import --prf core           # register your currently installed packages
 ```
 
-**Add a package**
+Already have a `Brewfile`? Import it directly:
 
 ```bash
-al add jq
+al import Brewfile --prf core             # register only
+al import Brewfile --prf core --install   # also install missing packages
 ```
 
-**Enable shell** — add to `.zshrc` or `.bashrc`:
+`al import` (auto-detect) only picks up explicitly installed packages (`brew leaves`), plus casks and mas apps. See **[Brewfile migration](docs/en/brewfile-migration.md)** for details.
+
+### Starting from scratch
+
+```bash
+al init            # or: al init --guided  for interactive setup
+al add jq          # add a package
+```
+
+**Enable shell** (both paths) — add to `.zshrc` or `.bashrc`:
 
 ```bash
 eval "$(al activate zsh)"   # or bash
